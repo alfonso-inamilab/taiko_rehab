@@ -1,5 +1,4 @@
 # Example to use a webcam with OpenCV Demo for python. 
-# TODO Run the camera frame feeder in a different thread
 # TODO Get (aproximate) the arms velocity
 # TODO Implement taiko joystick wcontrols
 # TODO MIDI audio synthesizer 
@@ -10,6 +9,9 @@ import os
 import time
 from sys import platform
 import argparse
+
+# TAIKO REHAB MODULES
+from cameraThread import camThread
 
 # GLOBAL VARIABLES 
 OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
@@ -57,27 +59,22 @@ try:
     opWrapper.start()
     datum = op.Datum()
 
-    # Init camera 
-    cap = cv2.VideoCapture(CAM_OPCV_ID, cv2.CAP_DSHOW)
+    # Init camera thread
+    # cap = cv2.VideoCapture(CAM_OPCV_ID, cv2.CAP_DSHOW)
+    cam = camThread(1, 90)  # Init camera thread object
+    cam.start()   # Start camera capture
 
-    # Check if the webcam is opened correctly
-    if not cap.isOpened():
-        raise IOError("Cannot open webcam")
-
-    while True:
-        ret, frame = cap.read()
-        if frame is not None:
-
+    try:
+        while True:
             start = time.time()
-            ret, img = cap.read()  #cam with leds
-            if ret == False:
+            img = cam.get_video_frame()  #rgb right camera
+            if img is None:
                 continue
             
             datum.cvInputData = img
             opWrapper.emplaceAndPop(op.VectorDatum([datum]))
 
             # print("Body keypoints: \n" + str(datum.poseKeypoints))
-
             cv2.imshow("OpenPose 1.7.0 - Rehab", datum.cvOutputData)
             key = cv2.waitKey(15)
             if key == 27  or key & 0xFF == ord('q'):   # ESC or q to exit
@@ -85,6 +82,9 @@ try:
 
             end = time.time()
             # print("Frame total time: " + str(end - start) + " seconds")  # DEBUG
+    finally:
+       print('Taiko rehab as stopped....  Bye bye ( n o n ) p ')
+       cam.stop()
 
 except Exception as e:
     print(e)

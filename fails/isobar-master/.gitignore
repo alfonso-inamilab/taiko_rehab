@@ -1,0 +1,13 @@
+.svn
+.DS_Store
+*.pyc
+.eggs
+*.egg-info
+dist/
+.coverage
+.idea
+.ipynb_checkpoints/
+dev
+audio
+midi
+TODO.md

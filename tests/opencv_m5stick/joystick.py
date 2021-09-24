@@ -39,7 +39,7 @@ class Joystick:
             return [l_taiko, r_taiko]
         return [0,0]
 
-    def getStatus(self):
+    def isPressed(self):
         return self.joyPressed
 
     def joystickLoop(self, joyTime):

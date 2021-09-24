@@ -117,7 +117,7 @@ class M5StickUDP:
                 str_y = self.find_between(str_data,'y','y')
                 str_z = self.find_between(str_data,'z','z')
 
-                # cast and log the accelration
+                # cast and log the accelration  
                 acc_x  = float(str_x);  acc_y  = float(str_y); acc_z = float(str_z)
                 self.logAccel(acc_x, acc_y, acc_z) 
 

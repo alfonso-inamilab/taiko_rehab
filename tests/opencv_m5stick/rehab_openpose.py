@@ -27,22 +27,25 @@ from midi_control import MidiControl
 OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
 OP_PY_DEMO_PATH = "C:\\openpose\\openpose\\build\\examples\\tutorial_api_python\\"  # OpenPose 
 CAM_OPCV_ID = 0    # Open CV camera ID   (IS NOT USED ANYMORE)
-MAX_TXT_FRAMES = 8  # Number of frames the text wrist will be in the screen
+MAX_TXT_FRAMES = 5  # Number of frames the text wrist will be in the screen
 
 
 # Draws the given velocity over the given wrist position 
-def drawVelocity(img, vel, pose, left=False):
+def drawVelocity(img, vel, hit_ok, pose, left=False):
     
     font = cv2.FONT_HERSHEY_SIMPLEX  # font
     org = (50, 50)  # org
     fontScale = 1  # fontScale
-    color = (255, 0, 0)  # Blue color in BGR
+    # color = (255, 0, 0)  # Blue color in BGR
     thickness = 2  # Line thickness of 2 px
     lpos = ( int(pose[7][0]), int(pose[7][1])  )
     rpos = ( int(pose[4][0]), int(pose[4][1])  )
 
     # Using cv2.putText() method
-    img = cv2.putText(img, 'OpenCV', lpos, font, fontScale, color, thickness, cv2.LINE_AA)
+    if hit_ok:
+        img = cv2.putText(img, "{0:.2f}".format(vel), lpos, font, fontScale, (0, 255, 0), thickness, cv2.LINE_AA)
+    else:
+        img = cv2.putText(img, "{0:.2f}".format(vel), lpos, font, fontScale, (0, 0, 255), thickness, cv2.LINE_AA)
     return img
 
 def main():
@@ -96,17 +99,19 @@ def main():
     # Init UDP server thread 
     m5 = M5StickUDP(port=50007, dt=10, buffer_size=1000, log_file='m5log.csv')
     m5.start()   # Star UDP server 
- 
-    joyTime = Value('q', 0)  # Value object to share time between joystick and midicontrol  
-    
+
     # Init Joystick
+    joyTime = Value('q', 0)  # Value object to get the joystick pressed timming      
     joy = Joystick(joyTime)
     joy.start()   # Start joystick event catch thread
 
-    midi = MidiControl(portname=None, filename='mary_lamb.mid', joyTime=joyTime)
+    # Init MIDI control process
+    midi = MidiControl(portname=None, channel=0, filename='mary_lamb.mid', joyTime=joyTime)
     # midi.start()  # Start midi control PROCESS
 
     txtFrames = MAX_TXT_FRAMES  # Number of cycles the wrist text appears on the screen
+    hit_vel = 0   # To print the velocity on the screen
+    hit_ok = False  # To print the hit miss or fail on the screen
     try:
         while True:
             start = time.time()
@@ -119,10 +124,16 @@ def main():
 
             # Estimate the velocity of the wrist from the poseKeypoints
             if datum.poseKeypoints is not None:
-                vel = m5.getM5Vel()
+                note_hit_event = midi.isNewEvent()
+                if note_hit_event is not None:  
+                    # hit_vel = m5.getLastMaxVel()
+                    hit_ok = note_hit_event[2]
+                    hit_vel = m5.getM5Vel()
+                    txtFrames = 0
+
                 img = datum.cvOutputData
                 if txtFrames < MAX_TXT_FRAMES:
-                    img = drawVelocity(img, vel, datum.poseKeypoints[0], left=False)  # DOES NOTHING YET
+                    img = drawVelocity(img, hit_vel[2], hit_ok, datum.poseKeypoints[0], left=False)  # DOES NOTHING YET
                     txtFrames = txtFrames + 1
 
                 cv2.imshow("OpenPose 1.7.0 - Rehab Heels", img)
@@ -131,8 +142,6 @@ def main():
                     break
                 elif key & 0xFF == ord('p'):
                     midi.start()
-                elif key & 0xFF == ord('t'):
-                    txtFrames = 0
 
             end = time.time()
             # print("Frame total time: " + str(end - start) + " seconds")  # DEBUG

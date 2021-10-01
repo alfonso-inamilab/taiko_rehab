@@ -18,9 +18,10 @@ class camThread():
         if self.cap.isOpened() == False:
             print("Error opening video stream or file")
 
-        #change webcam resolution
-        # self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resX)  
-        # self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resY) 
+        # Get camera resolution 
+        self.resX = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)  
+        self.resY = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
 
     def start(self):
         # Start background frame grabbing

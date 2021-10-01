@@ -12,16 +12,20 @@ from sys import platform
 import argparse
 import pygame
 import numpy as np
-from multiprocessing import Value
+from multiprocessing import Array
 
 # TAIKO REHAB MODULES
 from cameraThread import camThread
-# UDP M5STICK-C SERVER
-from m5stick_udp_server import M5StickUDP
+# UDP M5STICK-C SERVER   
+# from m5stick_udp_server import M5StickUDP
 # PYGAME JOYSTICK TO CATCH TIME EVENTS
 from joystick import Joystick
 # MIDO TO PLAY MIDI AND MEASURE TIMMING
 from midi_control import MidiControl
+# CLASS TO CALCULATE AND LOG WRIST POSITION
+from wrist_pos_logger import OPWristPos
+# CLASS TO READ THE FORCE/ACC FROM THE SENSOR
+from m5stick_serial_acc import M5SerialCom
 
 # GLOBAL VARIABLES 
 OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
@@ -29,24 +33,6 @@ OP_PY_DEMO_PATH = "C:\\openpose\\openpose\\build\\examples\\tutorial_api_python\
 CAM_OPCV_ID = 0    # Open CV camera ID   (IS NOT USED ANYMORE)
 MAX_TXT_FRAMES = 5  # Number of frames the text wrist will be in the screen
 
-
-# Draws the given velocity over the given wrist position 
-def drawVelocity(img, vel, hit_ok, pose, left=False):
-    
-    font = cv2.FONT_HERSHEY_SIMPLEX  # font
-    org = (50, 50)  # org
-    fontScale = 1  # fontScale
-    # color = (255, 0, 0)  # Blue color in BGR
-    thickness = 2  # Line thickness of 2 px
-    lpos = ( int(pose[7][0]), int(pose[7][1])  )
-    rpos = ( int(pose[4][0]), int(pose[4][1])  )
-
-    # Using cv2.putText() method
-    if hit_ok:
-        img = cv2.putText(img, "{0:.2f}".format(vel), lpos, font, fontScale, (0, 255, 0), thickness, cv2.LINE_AA)
-    else:
-        img = cv2.putText(img, "{0:.2f}".format(vel), lpos, font, fontScale, (0, 0, 255), thickness, cv2.LINE_AA)
-    return img
 
 def main():
 # try:
@@ -68,7 +54,6 @@ def main():
 
     # Custom Params (refer to include/openpose/flags.hpp for more parameters)
     params = dict()
-    print (dir_path)
     params["model_folder"] = OP_MODELS_PATH
     # params["num_gpu"] = 1
     # params["camera"] = CAM_OPCV_ID
@@ -97,17 +82,27 @@ def main():
     cam.start()   # Start camera capture
 
     # Init UDP server thread 
-    m5 = M5StickUDP(port=50007, dt=10, buffer_size=1000, log_file='m5log.csv')
-    m5.start()   # Star UDP server 
+    # m5 = M5StickUDP(port=50007, dt=10, buffer_size=1000, log_file='m5log.csv')
+    # m5.start()   # Star UDP server 
 
-    # Init Joystick
-    joyTime = Value('q', 0)  # Value object to get the joystick pressed timming      
-    joy = Joystick(joyTime)
-    joy.start()   # Start joystick event catch thread
+    # Init Joystick       
+    joy = Joystick()
+    joyTime = Array('q', [0] * joy.jCount)  # Sync object to save the joystick number and timming
+    joy.start(joyTime)   # Init thread and start joystick event catch thread
+
+    # Init M5 acc serial thread
+    joyForces = Array('f', [0] * joy.jCount)  # object to save the joysitck hit force
+    m5 = []
+    for i in range(0,joy.jCount):
+        m5.append( M5SerialCom( bauds=115200, port='COM3', joyForces=joyForces, joyIndex = i, log_file='acc_log.csv') )
+        m5[-1].start()
 
     # Init MIDI control process
-    midi = MidiControl(portname=None, channel=0, filename='mary_lamb.mid', joyTime=joyTime)
+    midi = MidiControl(portname=None, channel=0, filename='mary_lamb.mid', joyTime=joyTime, joyForces=joyForces, numJoysticks=joy.jCount)
     # midi.start()  # Start midi control PROCESS
+
+    # Logs the users' wrists positions
+    wristPos = OPWristPos(cam.resX, cam.resY, log_file='wrist_pos_log.csv')
 
     txtFrames = MAX_TXT_FRAMES  # Number of cycles the wrist text appears on the screen
     hit_vel = 0   # To print the velocity on the screen
@@ -124,19 +119,18 @@ def main():
 
             # Estimate the velocity of the wrist from the poseKeypoints
             if datum.poseKeypoints is not None:
-                note_hit_event = midi.isNewEvent()
-                if note_hit_event is not None:  
-                    # hit_vel = m5.getLastMaxVel()
-                    hit_ok = note_hit_event[2]
-                    hit_vel = m5.getM5Vel()
+                events = midi.isNewEvent()
+                if events is not None:  
+                    w_pos = wristPos.getWristElevation(datum.poseKeypoints)
                     txtFrames = 0
 
                 img = datum.cvOutputData
-                if txtFrames < MAX_TXT_FRAMES:
-                    img = drawVelocity(img, hit_vel[2], hit_ok, datum.poseKeypoints[0], left=False)  # DOES NOTHING YET
+                img = wristPos.drawPersonNum(img, datum.poseKeypoints)
+                if txtFrames < MAX_TXT_FRAMES and events is not None:
+                    img = wristPos.drawHitOK(img, events, datum.poseKeypoints)    # Draws if hit were OK or NOT
                     txtFrames = txtFrames + 1
 
-                cv2.imshow("OpenPose 1.7.0 - Rehab Heels", img)
+                cv2.imshow("Taiko Rehab", img)
                 key = cv2.waitKey(15)
                 if key == 27  or key & 0xFF == ord('q'):   # ESC or q to exit
                     break
@@ -148,7 +142,8 @@ def main():
     finally:
        print('Taiko rehab as stopped....  Bye bye ( n o n ) p ')
        cam.stop()
-       m5.stop()
+       for i in range(0,joy.jCount):
+           m5[i].stop()
        joy.stop()
        midi.stop()
 

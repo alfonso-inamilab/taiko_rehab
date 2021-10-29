@@ -1,6 +1,9 @@
 import sys
-import time
 import mido
+import os
+import csv
+import time
+import datetime
 from mido import MidiFile 
 from multiprocessing import Process, Value, Array
 
@@ -11,13 +14,14 @@ class MidiControl:
     # portname - Midi portname
     # filename - Midi filename to play
     # joyTime - multiprocessing Value object to track Joystick time events
-    def __init__(self, portname, channel, filename, joyTime, joyForces, numJoysticks):
+    def __init__(self, portname, channel, filename, joyTime, joyForces, numJoysticks ):
         TIME_LENGHT =  1000 #in (ms)  
         self.MAX_PAST = TIME_LENGHT // 4
         self.MAX_FUTURE = TIME_LENGHT // 8
         
         self.jCount = numJoysticks
         self.joyForces = joyForces
+        self.log_file = os.path.splitext(filename)[0] + "_log.csv"
         self.tnote = Value('q', 0)  # note's PC timming
         self.hits = Array('q', [0] * self.jCount)    # hit timming for each user
         self.event = Value('b', False )    # if a note on event has happened flag
@@ -40,29 +44,48 @@ class MidiControl:
     def isNewEvent(self):
         # NOTE: This function may have race conditions problems... 
         #       it needs further testing 
+        lastEvents = []
         if self.event.value == True:
             self.event.value = False
 
-            lastEvents = []
             for i in range (0,self.jCount):
-
-                if self.hits[i] < self.MAX_PAST:
+                if (self.tnote.value - self.hits[i]) < self.MAX_PAST:
                     # print("short OK : " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], True))
-                elif self.hits[i] < self.MAX_FUTURE:
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'HIT'))
+                    lastEvents.append(self.event_log[-1])
+
+                elif (self.tnote.value - self.hits[i]) < self.MAX_FUTURE:
                     # print("long  OK : " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], True))
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'MISS'))
+                    lastEvents.append(self.event_log[-1])
                 else:
                     # print("FAIL: " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], False))
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'MISS'))
+                    lastEvents.append(self.event_log[-1])
+
+        return lastEvents
+
+    # Save all the timming note/joystick events logs on disk 
+    def logOnDisk(self):
+        with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
+            wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             
-                lastEvents.append(self.event_log[-1])
-            # print (self.event_log)
-            return lastEvents
-        return None
-            
+            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Hit_Time(epoch)', 'Timming', 'Hit'])
+            first_event = 0
+            last_hit = 0  # for discard un-pressed events otherwise the same hit timming will be logged
+            for i, event in enumerate(self.event_log):
+                timming = event[1] - event[2]
+                if (i ==0):
+                    first_event = event[1]
+                if (last_hit - event[2] == 0):
+                    wr.writerow(  ( '0', event[1]-first_event, event[1], '0', '0', event[4] ) )
+                else:
+                    wr.writerow(  ( '0', event[1]-first_event, event[1], event[2], timming, event[4] ) )
+                last_hit = event[2]
+                
 
     # Main process loop. Plays the MIDI and checks for Joystick time events to calculate the timming. 
+    # REMEMBER: This is an independet process, so the variables are NOT shared with the main thread. 
     def playMidi(self, portname, filename, joyTime, tnote, hits, event):
         output = mido.open_output(portname)
         midifile = MidiFile(filename)
@@ -70,23 +93,20 @@ class MidiControl:
         pc = mido.Message('program_change', channel=8, program=116, time=0 )
         output.send(pc)
 
+
         for msg in midifile.play():
             if msg.type == 'note_on' and msg.velocity > 0:
-                # now = int(time.time() * 1000)
-                # hit =  now - joyTime.value
                 now = int(time.time() * 1000)
                 tnote.value = now
                 for i in range(0, self.jCount):
-                    hits[i] = now - joyTime[i]
-
-                    print(hits[i])
-                    if hits[i] < self.MAX_FUTURE or hits[i] < self.MAX_PAST:
+                    hits[i] = joyTime[i]
+                    joyhit = now - hits[i]
+                    if joyhit < self.MAX_FUTURE or joyhit < self.MAX_PAST:
                         pnote = mido.Message('note_on', channel=8, note=msg.note, velocity=127, time=0)
                         output.send(pnote)
                 
                 event.value = True
-                # print(msg)
-
             output.send(msg)
         output.reset()
+
         return

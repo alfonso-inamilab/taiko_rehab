@@ -11,7 +11,7 @@ https://www.amazon.co.jp/gp/product/B07T9DZBW9
  https://www.amazon.co.jp/-/en/gp/product/B07MPBMRWD/ref=ox_sc_act_title_1?smid=A3ALF3N55UI5NK&psc=1
 - Web Camera to measure the wrist position with OpenPose
 
-![System Description](imgs/system_description.png?raw=true)
+![System Description](img/system_description.png?raw=true)
 
 ## Event Log Description 
 
@@ -49,4 +49,4 @@ The program has many constant to control several paramters. These constants are 
 ## Install
 TODO. Make a better documentation
 
-OpenPose, M5Stick libraries and several Python libraries must be installed in order for the system to correctly work.  
+OpenPose, M5Stick libraries and several Python libraries must be installed in order for the system to correctly work. 

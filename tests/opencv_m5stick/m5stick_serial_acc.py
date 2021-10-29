@@ -15,10 +15,8 @@ class M5SerialCom:
 
         self.stopFlag = Value('b', False)
         self.serialProcess = Process(target=self.serialLoop, args=(self.stopFlag, joyForces))  
-        self.accLogBuff = []      
-        self.MAX_BUF_LEN = 500
-        self.LAST_MAX_LEN = 3
-        self.JOYSTICK_MASS = 0.1   # 100 gr 
+        self.accLogBuff = []     # logged into disk when the tread is stopped
+        self.JOYSTICK_MASS = 0.1   # 100 gr mass in kilograms to calculate Force from Acceleration
 
     # starts the thread 
     def start(self):
@@ -29,31 +27,30 @@ class M5SerialCom:
     def stop(self):
         self.stopFlag.value = False
 
-    # save the captured lines into a file
+    # when the thread is stopped log all captured data on disk
+    # (must be called inside the thread process)
     def logOnDisk(self):
-        with open(self.log_file, 'w', newline='') as csvfile:
+        with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Z_Axis_Accelration_(ms/s^2)', 'Force(N)'])
+            first_event = 0
             for i, line in enumerate(self.accLogBuff):
                 acc_s = line[1].decode('utf-8')
-                
                 acc_y = acc_s.split(',')[1].split(',')[0]
-                wr.writerow( [line[0], acc_y] )
+                f_y = float(acc_y) * self.JOYSTICK_MASS
+                if i == 0:
+                    first_event = line[0]
+                wr.writerow( [0, line[0]-first_event, line[0], acc_y, f_y] )
 
-    # log the Last Max Force value (in a given range LAST_MAX_LEN)
+
     def getLastForce(self):
-        # accLen = len(self.accLogBuff)
-        # self.lastMax = 0
-        # for i in range(accLen-1, accLen-self.LAST_MAX_LEN, -1):
-        #     acc_s = self.accLogBuff[i][1].decode('utf-8')
-        #     acc_y = float(acc_s.split(',')[1].split(',')[0])
-        #     if (self.lastMax < acc_y):
-        #         self.lastMax = acc_y
-        # return self.lastMax * self.JOYSTICK_MASS
         acc_s = self.accLogBuff[-1][1].decode('utf-8')
         return float(acc_s.split(',')[1].split(',')[0])
 
 
     # serial comminication main loop
+    # REMEMBER: This is an independet process, so the variables are NOT shared with the main thread. 
     def serialLoop(self, stopFlag, joyForces ):
         try:
             self.ser = serial.Serial(self.port, self.baudrate)
@@ -64,20 +61,16 @@ class M5SerialCom:
         now = int(time.time() * 1000)
         readLine = self.ser.readline()
         self.accLogBuff.append( (now, readLine)  )
-        bufLen = 0
         fMax = 0
         while stopFlag.value:
             now = int(time.time() * 1000)
             readLine = ( self.ser.readline() )
             self.accLogBuff.append( (now, readLine)  )
-            bufLen = bufLen + 1
             fMax = fMax + 1
-            if bufLen == self.MAX_BUF_LEN:
-                self.logOnDisk()
-                bufLen = 0
             if fMax == self.LAST_MAX_LEN:
                 joyForces[self.jIndex] = self.getLastForce()
                 fMax = 0
+        self.logOnDisk()
 
         self.ser.close()
         

@@ -30,7 +30,7 @@ https://www.amazon.co.jp/gp/product/B07T9DZBW9
 | Hit | HIT if the user hit the note, MISS if not | string |
 
 ## Usage 
-Open a terminal where the progra is located and type:
+Open a terminal where the program is located, go the the `bin` folder and type:
 
 `python taiko_rehab.py [midi_file_path.mid]`
 

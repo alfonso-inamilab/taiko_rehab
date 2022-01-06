@@ -59,7 +59,7 @@ ude_pos_left = [0,0]
 ude_pos_right = [0,0]
 ude_diff_left = [0,0]
 ude_diff_right = [0,0]
-def estimateVelocity(pose):
+def getVelocity(pose):
     global past; global now; global first
     global ude_pos_left; global ude_pos_right
     global ude_diff_left; global ude_diff_right

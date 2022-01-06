@@ -7,7 +7,9 @@ import numpy as np
 from pprint import pprint
 from threading import Thread
 
-class OPWristPos:
+# Class that calculates the angle between the forearm and arm 
+# and saves all the data in a log
+class ArmAngleLog:
 
     def __init__(self, resX, resY, log_file):
         self.log_file = log_file
@@ -16,6 +18,9 @@ class OPWristPos:
         self.INDEX_POS = 100
         self.SCORE_POS = 60
         self.wristLogs = []
+        self.prev_left = 0
+        self.prev_right = 0
+        self.prev_time = 0
 
     # Draws if hit were OK or NOT over the users' head
     def drawHit(self, img, events, poses):
@@ -49,22 +54,72 @@ class OPWristPos:
 
 
     # Returns the users' wrist elevation and logs their movements into memory
-    def logWristElevation(self, poses):
+    # def logWristElevation(self, poses):
+    #     ret_pos = []  # Left and Right wrist elevation of each person
+    #     for i, pose in enumerate(poses): 
+    #         # Get the user's wrist height 
+    #         left_height = pose[7][1]   
+    #         right_height = pose[4][1]   
+        
+    #         # Normalize the position accordingly to the image resolution
+    #         left_norm_h = left_height / self.resY
+    #         right_norm_h = right_height / self.resY
+
+    #         now = int(time.time() * 1000)
+    #         ret_pos.append( (now, left_norm_h, right_norm_h, left_height, right_height) )  # 0 max 1 min
+        
+    #     self.wristLogs.append(ret_pos)
+    #     return ret_pos
+
+    # Rreturns the user's forearm/arm angles
+    def logArmAngleVelocity(self, poses):
         ret_pos = []  # Left and Right wrist elevation of each person
         for i, pose in enumerate(poses): 
-            # Get the user's wrist height 
-            left_height = pose[7][1]   
-            right_height = pose[4][1]   
-        
-            # Normalize the position accordingly to the image resolution
-            left_norm_h = left_height / self.resY
-            right_norm_h = right_height / self.resY
+            # Calculate the rotation angle of the wrist in contrast to the horizontal 
+            # diff_left = np.array( [pose[7][0], self.resY - pose[7][1]] ) - np.array([pose[6][0], self.resY - pose[6][1]])
+            # diff_right = np.array( [pose[4][0], self.resY - pose[4][1]] ) - np.array([pose[3][0], self.resY - pose[3][1]])
+            # ax = np.array([1,0])
+            # left_angle = self.calcForeArmVel( diff_left , ax )
+            # right_angle = self.calcForeArmVel( diff_right , ax )
 
+            # Calculate the rotation angle between the arm and forearm
+            left_foream = np.array(  [ pose[7][0] - pose[6][0] , (self.resY - pose[7][1]) - (self.resY - pose[6][1])  ] )
+            left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (self.resY - pose[5][1]) - (self.resY - pose[6][1])  ] )
+            left_angle = self.calcForeArmVel( left_foream , left_arm )
+            right_foream = np.array(  [ pose[4][0] - pose[3][0] , (self.resY - pose[4][1]) - (self.resY - pose[3][1] ) ] )
+            right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (self.resY - pose[2][1]) - (self.resY - pose[3][1] ) ] )
+            right_angle = self.calcForeArmVel( right_foream , right_arm )
+        
+            now_sec =int ( time.time_ns() / 100000000)
+            dt = now_sec - self.prev_time 
+            left_angle_vel  = (self.prev_left - left_angle) / dt 
+            right_angle_vel = (self.prev_right - right_angle) / dt 
+
+            self.prev_left = left_angle
+            self.prev_right = right_angle
+            self.prev_time = now_sec
+            
+            # print(right_angle_vel)
             now = int(time.time() * 1000)
-            ret_pos.append( (now, left_norm_h, right_norm_h, left_height, right_height) )  # 0 max 1 min
+            ret_pos.append( (now, 0, 0, left_angle_vel, right_angle_vel) )  # 0 max 1 min
         
         self.wristLogs.append(ret_pos)
         return ret_pos
+
+    def calcForeArmVel(self, vector_1, vector_2):
+        unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+        unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+        dot_product = np.dot(unit_vector_1, unit_vector_2)
+        angle = np.arccos(dot_product)
+        degs = (180.0/math.pi) * angle
+
+        # Add sign to up and down angles
+        # if (unit_vector_1[1] > 0):
+            # degs = degs * -1
+        # For 360 degre angles
+        # if (unit_vector_1[1] > 0):
+            # degs = 180.0 + (180.0 - degs) 
+        return degs
 
     # Save the wrist position on CSV Format
     def logOnDisk(self):

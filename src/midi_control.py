@@ -16,7 +16,7 @@ class MidiControl:
     # joyTime - multiprocessing Value object to track Joystick time events
     def __init__(self, portname, channel, filename, joyTime, joyForces, numJoysticks ):
         TIME_LENGHT =  1000 #in (ms)  
-        self.MAX_PAST = TIME_LENGHT // 4
+        self.MAX_PAST = TIME_LENGHT // 2
         self.MAX_FUTURE = TIME_LENGHT // 8
         
         self.jCount = numJoysticks
@@ -51,16 +51,16 @@ class MidiControl:
             for i in range (0,self.jCount):
                 if (self.tnote.value - self.hits[i]) < self.MAX_PAST:
                     # print("short OK : " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'HIT'))
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 1))
                     lastEvents.append(self.event_log[-1])
 
                 elif (self.tnote.value - self.hits[i]) < self.MAX_FUTURE:
                     # print("long  OK : " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'MISS'))
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], -1))
                     lastEvents.append(self.event_log[-1])
                 else:
                     # print("FAIL: " + str(self.hits[i]))
-                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], 'MISS'))
+                    self.event_log.append((i, self.tnote.value, self.hits[i], self.joyForces[i], -1))
                     lastEvents.append(self.event_log[-1])
 
         return lastEvents

@@ -21,7 +21,7 @@ from joystick import Joystick
 # MIDO TO PLAY MIDI AND MEASURE TIMMING
 from midi_control import MidiControl
 # CLASS TO CALCULATE AND LOG WRIST POSITION
-from wrist_pos_logger import OPWristPos
+from arm_angle_logger import ArmAngleLog
 # CLASS TO READ THE FORCE/ACC FROM THE SENSOR
 from m5stick_serial_acc import M5SerialCom
 
@@ -35,7 +35,7 @@ MAX_NUM_PEOPLE = 1  # Nuber of users detected with OpenCV. -1 for No limit
 # PROGRAM GLOBAL VARIABLES
 FULL_LOG_FILE = 'full_log.csv'
 FORCE_LOG_NAME = 'force_log_' 
-WRIST_LOG_NAME = 'wrist_pos_log.csv'
+WRIST_LOG_NAME = 'wrist_angle_log.csv'
 
 
 def main():
@@ -115,7 +115,7 @@ def main():
     midi = MidiControl(portname=None, channel=0, filename=args[1][0], joyTime=joyTime, joyForces=joyForces, numJoysticks=joy.jCount)
 
     # Logs the users' wrists positions
-    wristPos = OPWristPos(cam.resX, cam.resY, log_file=WRIST_LOG_NAME)
+    wristPos = ArmAngleLog(cam.resX, cam.resY, log_file=WRIST_LOG_NAME)
 
     txtFrames = MAX_TXT_FRAMES  # Number of cycles the wrist text appears on the screen
     hit_vel = 0   # To print the velocity on the screen
@@ -135,7 +135,7 @@ def main():
                 events = midi.isNewEvent()
                 img = datum.cvOutputData
                 img = wristPos.drawPersonNum(img, datum.poseKeypoints)
-                wristPos.logWristElevation(datum.poseKeypoints)
+                wristPos.logArmAngleVelocity(datum.poseKeypoints)
                 if events:  
                     txtFrames = 0
 

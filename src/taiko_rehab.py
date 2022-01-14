@@ -2,7 +2,6 @@
 # TODO Get (aproximate) the arms velocity
 # TODO Implement taiko joystick wcontrols
 # TODO MIDI audio synthesizer 
-
 import sys
 import cv2
 import os
@@ -12,7 +11,7 @@ from sys import platform
 import argparse
 import pygame
 import numpy as np
-from multiprocessing import Array
+from multiprocessing import Array, Value
 
 # TAIKO REHAB MODULES
 from cameraThread import camThread
@@ -24,11 +23,13 @@ from midi_control import MidiControl
 from arm_angle_logger import ArmAngleLog
 # CLASS TO READ THE FORCE/ACC FROM THE SENSOR
 from m5stick_serial_acc import M5SerialCom
+# CLASS TO DISPLAY SIMULTANEOUS VIDEO DISPLAY 
+from video_display import VideoDisplay
 
 # OPENCV GLOBAL VARIABLES 
 OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
 OP_PY_DEMO_PATH = "C:\\openpose\\openpose\\build\\examples\\tutorial_api_python\\"  # OpenPose 
-CAM_OPCV_ID = 1    # Open CV camera ID   (IS NOT USED ANYMORE)
+CAM_OPCV_ID = 0    # Open CV camera ID   (IS NOT USED ANYMORE)
 MAX_TXT_FRAMES = 5  # Number of frames the text wrist will be in the screen
 MAX_NUM_PEOPLE = 1  # Nuber of users detected with OpenCV. -1 for No limit
 
@@ -77,16 +78,52 @@ def main():
             if key not in params: params[key] = next_item
   
     # Check if the MIDI file path is given in the arguments
-    if not args[1]:
+    # if not args[1]:
+    #     print ("ERROR: MIDI file path is missing.")
+    #     return
+    # if os.path.isfile(args[1][0]) is False:
+    #     print ("ERROR: " + str(args[1][0]) + " is not a MIDIfile.")
+    #     return 
+    # # if ext == '.mp4':
+    # #     video = VideoDisplay( args[1][0], None, 0)
+    # #     video.video_pre_proc(OP_PY_DEMO_PATH)
+    # #     return
+    # if ext != '.mid' and ext != '.midi':
+    #     print ("ERROR: The file is not a valid MIDI or MP4 file.")
+    #     return
+
+    # Check parameters for video preprocessing 
+    if args[1][0] == '-p':
+        ext = os.path.splitext(args[1][1])[1]
+        if ext == 'mp4':
+            print ("Preprocsign the video....");   print ("Generating CSV file.... ")
+            video = VideoDisplay( args[1][1], None, 0)
+            video.video_pre_proc(OP_PY_DEMO_PATH)
+            return
+
+    # Check parameters for midi file 
+    if not args[1][0]:
         print ("ERROR: MIDI file path is missing.")
         return
     if os.path.isfile(args[1][0]) is False:
-        print ("ERROR: " + str(args[1][0]) + " is not a MIDIfile.")
-        return 
-    ext = os.path.splitext(args[1][0])[1] 
+        print ("ERROR: " + str(args[1][0]) + " is not a file.")
+        return  
+    ext = os.path.splitext(args[1][0])[1]
     if ext != '.mid' and ext != '.midi':
-        print ("ERROR: The file is not a valid MIDI file.")
+        print ("ERROR: The file is not a valid MIDI or MP4 file.")
+        return   
+    
+    # Check paramters for video file 
+    if not args[1][1]:
+        print ("ERROR: MIDI file path is missing.")
         return
+    if os.path.isfile(args[1][1]) is False:
+        print ("ERROR: " + str(args[1][1]) + " is not a file.")
+        return  
+    ext = os.path.splitext(args[1][1])[1]
+    if ext != '.mp4' and ext != '.mp4':
+        print ("ERROR: The file is not a valid MIDI or MP4 file.")
+        return 
 
     # Init OpenPose python wrapper
     opWrapper = op.WrapperPython()
@@ -98,6 +135,9 @@ def main():
     # cap = cv2.VideoCapture(CAM_OPCV_ID, cv2.CAP_DSHOW)
     cam = camThread(CAM_OPCV_ID, 200)  # Init camera thread object
     cam.start()   # Start camera capture
+
+    timestamp = Value('i', 0)
+    video = VideoDisplay( args[1][1], timestamp, 200)  # video display 
 
     # Init Joystick       
     joy = Joystick()
@@ -115,7 +155,8 @@ def main():
     midi = MidiControl(portname=None, channel=0, filename=args[1][0], joyTime=joyTime, joyForces=joyForces, numJoysticks=joy.jCount)
 
     # Logs the users' wrists positions
-    wristPos = ArmAngleLog(cam.resX, cam.resY, log_file=WRIST_LOG_NAME)
+    video_name = os.path.splitext(args[1][1])[0]
+    wristPos = ArmAngleLog(cam.resX, cam.resY, video_name + ".csv", log_file=WRIST_LOG_NAME)
 
     txtFrames = MAX_TXT_FRAMES  # Number of cycles the wrist text appears on the screen
     hit_vel = 0   # To print the velocity on the screen
@@ -126,7 +167,7 @@ def main():
             img = cam.get_video_frame()  #rgb right camera
             if img is None:
                 continue
-            
+
             datum.cvInputData = img
             opWrapper.emplaceAndPop(op.VectorDatum([datum]))
 
@@ -135,7 +176,10 @@ def main():
                 events = midi.isNewEvent()
                 img = datum.cvOutputData
                 img = wristPos.drawPersonNum(img, datum.poseKeypoints)
-                wristPos.logArmAngleVelocity(datum.poseKeypoints)
+                # calcs the arm and shoulder angular velocity
+                wristPos.calcArmVel(datum.poseKeypoints)
+                # Draws visual feedback when the users arms match
+                wristPos.drawArmsMatch(timestamp, 0.8) # must be called after calcArm Vel
                 if events:  
                     txtFrames = 0
 
@@ -143,15 +187,19 @@ def main():
                         img = wristPos.drawHit(img, events, datum.poseKeypoints)    # Draws if hit were OK or NOT
                         txtFrames = txtFrames + 1
 
-                cv2.imshow("Taiko Rehab", img)
-                key = cv2.waitKey(15)
-                if key == 27  or key & 0xFF == ord('q'):   # ESC or q to exit
-                    break
-                elif key & 0xFF == ord('p') or key & 0xFF == ord('P') :  # IF 'p' or 'P' start midi song 
-                    midi.start()
-
             end = time.time()
             # print("Frame total time: " + str(end - start) + " seconds")  # DEBUG
+        
+            img = cv2.resize(img, ((int)(img.shape[1]*0.5), (int)(img.shape[0]*0.5)) , interpolation = cv2.INTER_AREA  )
+            cv2.imshow("Taiko Rehab", img)  # open pose img
+            key = cv2.waitKey(1)
+            if key == 27  or key & 0xFF == ord('q'):   # ESC or q to exit
+                break
+            elif key & 0xFF == ord('p') or key & 0xFF == ord('P') :  # IF 'p' or 'P' start midi song 
+                video.start()
+                midi.start()
+
+           
     finally:
         print('Saving logs....')
         cam.stop()
@@ -160,6 +208,7 @@ def main():
             m5[i].stop()  # Logs force readings when stopped
         joy.stop()   # No need to log 
         midi.stop()  
+        video.stop()
         midi.logOnDisk()  # logs midi and joystick hit events     
         
         # TODO Join logs for each joystick

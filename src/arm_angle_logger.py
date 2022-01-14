@@ -5,22 +5,79 @@ import csv
 import pandas as pd
 import numpy as np
 from pprint import pprint
+from array import array
 from threading import Thread
 
 # Class that calculates the angle between the forearm and arm 
 # and saves all the data in a log
 class ArmAngleLog:
 
-    def __init__(self, resX, resY, log_file):
+    def __init__(self, resX, resY, video_angles_file, log_file):
         self.log_file = log_file
+        self.video_angles = None
+        self.v_len = 0
+        self.initVideoAngles(video_angles_file)
         self.resX = resX
         self.resY = resY
         self.INDEX_POS = 100
         self.SCORE_POS = 60
         self.wristLogs = []
-        self.prev_left = 0
-        self.prev_right = 0
         self.prev_time = 0
+
+        self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm angular positions
+        self.user_arms_vel = [0.0, 0.0, 0.0, 0.0]   # current arm angular velocities
+        self.prev_arms_pos = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
+
+    # Opens CSV file with pre-procesed angles and uploads it to memory 
+    def initVideoAngles(self, file):
+        self.video_angles = []
+        with open(file, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',')
+            for row in reader:
+                time = float(row[0])
+                # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+                left_shoulder = [float(row[1]), float(row[2]) ]
+                right_shoulder = [float(row[3]), float(row[4]) ]
+                left_arm = [float(row[5]), float(row[6]) ]
+                right_arm = [float(row[7]), float(row[8]) ]
+                left_foream = [ float(row[9]), float(row[10]) ]
+                right_foream = [ float(row[11]), float(row[12]) ]
+                self.video_angles.append( [ time, left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ] )
+
+        self.v_len = len(self.video_angles)
+
+    # Given the time in ms, returns the vidoe arm and shoulder angles
+    def getCurrentAngles(self, time):
+        # From 0 to len search 
+        for indx in range(0, self.v_len, 1):
+            v_time = self.video_angles[indx][0]
+            if time < v_time:
+                # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+                return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
+
+    # Compares the users's arm position with the video arms position
+    # returns true if the difference is bellow the given threshold (left_arm, left_arm)
+    def drawArmsMatch(self, timestamp, threshold):
+        video_arms = self.getCurrentAngles(timestamp.value)  # Gets the video arms position from the CSV file
+        if video_arms is None:
+            return 
+
+        lsim_shoulder = self.calcCosineSim(self.user_arms_pos[0] , video_arms[0])
+        lsim_arm = self.calcCosineSim(self.user_arms_pos[2] , video_arms[2])
+        lsim_forearm = self.calcCosineSim(self.user_arms_pos[4] , video_arms[4])
+
+        rsim_shoulder = self.calcCosineSim(self.user_arms_pos[1] , video_arms[1])
+        rsim_arm = self.calcCosineSim(self.user_arms_pos[3] , video_arms[3])
+        rsim_forearm = self.calcCosineSim(self.user_arms_pos[5] , video_arms[5])
+
+        left = False
+        if (lsim_shoulder > threshold) and (lsim_arm > threshold) and (lsim_forearm > threshold):
+            left = True
+        right = False
+        if (rsim_shoulder > threshold) and (rsim_arm > threshold) and (rsim_forearm > threshold):
+            right = True
+
+        print (str(left) + " , " + str(right))
 
     # Draws if hit were OK or NOT over the users' head
     def drawHit(self, img, events, poses):
@@ -52,74 +109,60 @@ class ArmAngleLog:
             img = cv2.putText(img, str(i), chest, font, fontScale, (255, 0, 0), thickness, cv2.LINE_AA)
         return img
 
-
-    # Returns the users' wrist elevation and logs their movements into memory
-    # def logWristElevation(self, poses):
-    #     ret_pos = []  # Left and Right wrist elevation of each person
-    #     for i, pose in enumerate(poses): 
-    #         # Get the user's wrist height 
-    #         left_height = pose[7][1]   
-    #         right_height = pose[4][1]   
+    # Gets the vectors of the shoulder, arm and forearm
+    def getArmsVectors(self, pose):
+        left_foream = np.array(  [ pose[7][0] - pose[6][0] , (self.resY - pose[7][1]) - (self.resY - pose[6][1])  ] )
+        left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (self.resY - pose[5][1]) - (self.resY - pose[6][1])  ] )
         
-    #         # Normalize the position accordingly to the image resolution
-    #         left_norm_h = left_height / self.resY
-    #         right_norm_h = right_height / self.resY
-
-    #         now = int(time.time() * 1000)
-    #         ret_pos.append( (now, left_norm_h, right_norm_h, left_height, right_height) )  # 0 max 1 min
+        right_foream = np.array(  [ pose[4][0] - pose[3][0] , (self.resY - pose[4][1]) - (self.resY - pose[3][1] ) ] )
+        right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (self.resY - pose[2][1]) - (self.resY - pose[3][1] ) ] )
         
-    #     self.wristLogs.append(ret_pos)
-    #     return ret_pos
+        left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (self.resY - pose[1][1]) - (self.resY - pose[5][1])  ] )
+        right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (self.resY - pose[1][1]) - (self.resY - pose[2][1])  ] )
+        
+        return [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
 
-    # Rreturns the user's forearm/arm angles
-    def logArmAngleVelocity(self, poses):
-        ret_pos = []  # Left and Right wrist elevation of each person
+    # Calcuates the angular velocity between the arm/forearm and forearm/shoulder
+    def calcArmVel(self, poses):
+        user_arms = []
         for i, pose in enumerate(poses): 
-            # Calculate the rotation angle of the wrist in contrast to the horizontal 
-            # diff_left = np.array( [pose[7][0], self.resY - pose[7][1]] ) - np.array([pose[6][0], self.resY - pose[6][1]])
-            # diff_right = np.array( [pose[4][0], self.resY - pose[4][1]] ) - np.array([pose[3][0], self.resY - pose[3][1]])
-            # ax = np.array([1,0])
-            # left_angle = self.calcForeArmVel( diff_left , ax )
-            # right_angle = self.calcForeArmVel( diff_right , ax )
 
-            # Calculate the rotation angle between the arm and forearm
-            left_foream = np.array(  [ pose[7][0] - pose[6][0] , (self.resY - pose[7][1]) - (self.resY - pose[6][1])  ] )
-            left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (self.resY - pose[5][1]) - (self.resY - pose[6][1])  ] )
-            left_angle = self.calcForeArmVel( left_foream , left_arm )
-            right_foream = np.array(  [ pose[4][0] - pose[3][0] , (self.resY - pose[4][1]) - (self.resY - pose[3][1] ) ] )
-            right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (self.resY - pose[2][1]) - (self.resY - pose[3][1] ) ] )
-            right_angle = self.calcForeArmVel( right_foream , right_arm )
-        
+            self.user_arms_pos = self.getArmsVectors(pose)
+
             now_sec =int ( time.time_ns() / 100000000)
             dt = now_sec - self.prev_time 
-            left_angle_vel  = (self.prev_left - left_angle) / dt 
-            right_angle_vel = (self.prev_right - right_angle) / dt 
+            left_arm_vel  = (self.prev_arms_pos[0] - self.user_arms_pos[0]) / dt   # left arm vel  
+            right_arm_vel = (self.prev_arms_pos[1] - self.user_arms_pos[1]) / dt   # right arm vel
 
-            self.prev_left = left_angle
-            self.prev_right = right_angle
+            left_sh_vel  = (self.prev_arms_pos[2] - self.user_arms_pos[2]) / dt   # left shoulder vel
+            right_sh_vel = (self.prev_arms_pos[3] - self.user_arms_pos[3]) / dt   # right shoulder vel
+
+            self.prev_arms_pos = self.user_arms_pos
             self.prev_time = now_sec
-            
-            # print(right_angle_vel)
-            now = int(time.time() * 1000)
-            ret_pos.append( (now, 0, 0, left_angle_vel, right_angle_vel) )  # 0 max 1 min
-        
-        self.wristLogs.append(ret_pos)
-        return ret_pos
 
-    def calcForeArmVel(self, vector_1, vector_2):
+            now = int(time.time() * 1000)
+            user_arms.append( (now, left_arm_vel, right_arm_vel, left_sh_vel, right_sh_vel) )  # 0 max 1 min
+            break   # make this only for the first pose (single user)
+
+        self.wristLogs.append(user_arms)
+
+    
+    # calculates the angle between two given vectors
+    def calcVectorAngle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
         unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
         dot_product = np.dot(unit_vector_1, unit_vector_2)
         angle = np.arccos(dot_product)
         degs = (180.0/math.pi) * angle
 
-        # Add sign to up and down angles
-        # if (unit_vector_1[1] > 0):
-            # degs = degs * -1
-        # For 360 degre angles
-        # if (unit_vector_1[1] > 0):
-            # degs = 180.0 + (180.0 - degs) 
         return degs
+
+    # Calculates the cosine similarity between two given vectors
+    def calcCosineSim(self, vector_1, vector_2):
+        cdot = np.dot(vector_1, vector_2)
+        vec_norm1 = np.linalg.norm(vector_1)
+        vec_norm2 = np.linalg.norm(vector_2)
+        return (cdot / (vec_norm1 * vec_norm2))
 
     # Save the wrist position on CSV Format
     def logOnDisk(self):

@@ -14,17 +14,17 @@ import numpy as np
 from multiprocessing import Array, Value
 
 # TAIKO REHAB MODULES
-from cameraThread import camThread
+from include.cameraThread import camThread
 # PYGAME JOYSTICK TO CATCH TIME EVENTS
-from joystick import Joystick
+from include.joystick import Joystick
 # MIDO TO PLAY MIDI AND MEASURE TIMMING
-from midi_control import MidiControl
+from include.midi_control import MidiControl
 # CLASS TO CALCULATE AND LOG WRIST POSITION
-from arm_angle_logger import ArmAngleLog
+from include.arm_angle_logger import ArmAngleLog
 # CLASS TO READ THE FORCE/ACC FROM THE SENSOR
-from m5stick_serial_acc import M5SerialCom
+from include.m5stick_serial_acc import M5SerialCom
 # CLASS TO DISPLAY SIMULTANEOUS VIDEO DISPLAY 
-from video_display import VideoDisplay
+from include.video_display import VideoDisplay
 
 # OPENCV GLOBAL VARIABLES 
 OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder

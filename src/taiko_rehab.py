@@ -182,7 +182,7 @@ def main():
                 # Checks if the users arms and instructors arms (video) match
                 arms_matches = armsPos.getArmsMatch(timestamp, 0.8) # must be called after calcArmVel
                 # Draws the skeleton of the user's arms (changes accordingly to match)
-                armsPos.drawSkeleton(img, datum.poseKeypoints, arms_matches)
+                armsPos.drawSkeleton(img, datum.poseKeypoints, arms_matches, 0.8)
                 if events:  
                     txtFrames = 0
 

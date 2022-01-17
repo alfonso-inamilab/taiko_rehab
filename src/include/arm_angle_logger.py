@@ -27,7 +27,7 @@ class ArmAngleLog:
         self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm angular positions
         self.user_arms_vel = [0.0, 0.0, 0.0, 0.0]   # current arm angular velocities
         self.prev_arms_pos = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
-        self.red =   (0,0,255)  #B,G,R colors to draw the Skeleton
+        # self.red =   (0,0,255)  #B,G,R colors to draw the Skeleton
         self.green = (0,255,0)  #B,G,R colors to draw the Skeleton
 
     # Opens CSV file with pre-procesed angles and uploads it to memory 
@@ -79,8 +79,9 @@ class ArmAngleLog:
         if (rsim_shoulder > threshold) and (rsim_arm > threshold) and (rsim_forearm > threshold):
             right = True
 
-        print (str(left) + " , " + str(right))   # DEBUG ONLY
-        return [left, right]
+        # print (str(left) + " , " + str(right))   # DEBUG ONLY
+        # print ( str((lsim_shoulder+lsim_arm+lsim_forearm)/3.0), str((rsim_shoulder+rsim_arm+rsim_forearm)/3.0) )
+        return [(lsim_shoulder+lsim_arm+lsim_forearm)/3.0, (rsim_shoulder+rsim_arm+rsim_forearm)/3.0]
         
 
     # Draws if hit were OK or NOT over the users' head
@@ -113,9 +114,36 @@ class ArmAngleLog:
             img = cv2.putText(img, str(i), chest, font, fontScale, (255, 0, 0), thickness, cv2.LINE_AA)
         return img
 
-    # Draws the skeleton of the given pose in the given image  (ONLY ARMS are DRAWN) 
-    def drawSkeleton(self, img, poses, matches):
+    # Gets a gradient between white and green
+    # def whiteGreenGradient(self, match):
+    #     match = (match*255)/1.0
+    #     if match < 0: match = 0
+    #     if match > 255: match = 255
+    #     # r = 255-match;  g = r; b = 255   # Gradient for blue
+    #     r = 255-match;  g = 120; b = r     # Gradient for red
+    #     return (b,g,r)
 
+    # Draws the skeleton of the given pose in the given image  (ONLY ARMS are DRAWN) 
+    def drawSkeleton(self, img, poses, matches, threshold):
+        for i, pose in enumerate(poses): 
+            # LEFT ARM
+            # color = self.whiteGreenGradient(matches[0])
+            color = (0, 255, 0); 
+            if matches[0] < threshold:
+                color = (0, 0, 255)
+            img = cv2.line(img, (int(pose[7][0]),int(pose[7][1])) , (int(pose[6][0]),int(pose[6][1]))  , color, 5)
+            img = cv2.line(img, (int(pose[6][0]),int(pose[6][1])) , (int(pose[5][0]),int(pose[5][1]))  , color, 5)
+            img = cv2.line(img, (int(pose[5][0]),int(pose[5][1])) , (int(pose[1][0]),int(pose[1][1]))  , color, 5)
+            # RIGHT ARM
+            # color = self.whiteGreenGradient(matches[1])
+            color = (0, 255, 0); 
+            if matches[1] < threshold:
+                color = (0, 0, 255)
+            img = cv2.line(img, (int(pose[1][0]),int(pose[1][1])) , (int(pose[2][0]),int(pose[2][1]))  , color, 5)
+            img = cv2.line(img, (int(pose[2][0]),int(pose[2][1])) , (int(pose[3][0]),int(pose[3][1]))  , color, 5)
+            img = cv2.line(img, (int(pose[3][0]),int(pose[3][1])) , (int(pose[4][0]),int(pose[4][1]))  , color, 5)
+            break # Do it only for the first found person
+    
         return img
 
     # Gets the vectors of the shoulder, arm and forearm

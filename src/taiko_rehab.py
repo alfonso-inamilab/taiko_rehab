@@ -13,30 +13,31 @@ import pygame
 import numpy as np
 from multiprocessing import Array, Value
 
+
+# IMPORTING GLOBAL PARAMETERS 
+from include.globals import OP_PY_DEMO_PATH
+from include.globals import OP_MODELS_PATH
+from include.globals import CAM_OPCV_ID
+from include.globals import MAX_NUM_PEOPLE
+from include.globals import MAX_TXT_FRAMES
+
+from include.globals import FULL_LOG_FILE
+from include.globals import ARMS_LOG_NAME
+from include.globals import FORCE_LOG_NAME
+
 # TAIKO REHAB MODULES
 from include.cameraThread import camThread
 # PYGAME JOYSTICK TO CATCH TIME EVENTS
 from include.joystick import Joystick
 # MIDO TO PLAY MIDI AND MEASURE TIMMING
 from include.midi_control import MidiControl
-# CLASS TO CALCULATE AND LOG WRIST POSITION
+# CLASS TO CALCULATE AND LOG ARMS AND SHOULDERS POSITION
 from include.arm_angle_logger import ArmAngleLog
 # CLASS TO READ THE FORCE/ACC FROM THE SENSOR
 from include.m5stick_serial_acc import M5SerialCom
 # CLASS TO DISPLAY SIMULTANEOUS VIDEO DISPLAY 
 from include.video_display import VideoDisplay
 
-# OPENCV GLOBAL VARIABLES 
-OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
-OP_PY_DEMO_PATH = "C:\\openpose\\openpose\\build\\examples\\tutorial_api_python\\"  # OpenPose 
-CAM_OPCV_ID = 0    # Open CV camera ID   (IS NOT USED ANYMORE)
-MAX_TXT_FRAMES = 5  # Number of frames the text wrist will be in the screen
-MAX_NUM_PEOPLE = 1  # Nuber of users detected with OpenCV. -1 for No limit
-
-# PROGRAM GLOBAL VARIABLES
-FULL_LOG_FILE = 'full_log.csv'
-FORCE_LOG_NAME = 'force_log_' 
-WRIST_LOG_NAME = 'wrist_angle_log.csv'
 
 
 def main():
@@ -154,11 +155,11 @@ def main():
     # Init MIDI control process
     midi = MidiControl(portname=None, channel=0, filename=args[1][0], joyTime=joyTime, joyForces=joyForces, numJoysticks=joy.jCount)
 
-    # Logs the users' wrists positions
+    # Logs the users' arms positions
     video_name = os.path.splitext(args[1][1])[0]
-    wristPos = ArmAngleLog(cam.resX, cam.resY, video_name + ".csv", log_file=WRIST_LOG_NAME)
+    armsPos = ArmAngleLog(cam.resX, cam.resY, video_name + ".csv", log_file=ARMS_LOG_NAME)
 
-    txtFrames = MAX_TXT_FRAMES  # Number of cycles the wrist text appears on the screen
+    txtFrames = MAX_TXT_FRAMES  # Number of cycles hit feedback appears on the screen
     hit_vel = 0   # To print the velocity on the screen
     hit_ok = False  # To print the hit miss or fail on the screen
     try:
@@ -171,20 +172,22 @@ def main():
             datum.cvInputData = img
             opWrapper.emplaceAndPop(op.VectorDatum([datum]))
 
-            # Estimate the velocity of the wrist from the poseKeypoints
+            # Estimate the position and velocity of the arms and shoulders
             if datum.poseKeypoints is not None:
                 events = midi.isNewEvent()
-                img = datum.cvOutputData
-                img = wristPos.drawPersonNum(img, datum.poseKeypoints)
+                # img = datum.cvOutputData  # OpenCV skeleton image 
+                img = armsPos.drawPersonNum(img, datum.poseKeypoints)
                 # calcs the arm and shoulder angular velocity
-                wristPos.calcArmVel(datum.poseKeypoints)
-                # Draws visual feedback when the users arms match
-                wristPos.drawArmsMatch(timestamp, 0.8) # must be called after calcArm Vel
+                armsPos.calcArmVel(datum.poseKeypoints)
+                # Checks if the users arms and instructors arms (video) match
+                arms_matches = armsPos.getArmsMatch(timestamp, 0.8) # must be called after calcArmVel
+                # Draws the skeleton of the user's arms (changes accordingly to match)
+                armsPos.drawSkeleton(img, datum.poseKeypoints, arms_matches)
                 if events:  
                     txtFrames = 0
 
                     if txtFrames < MAX_TXT_FRAMES:
-                        img = wristPos.drawHit(img, events, datum.poseKeypoints)    # Draws if hit were OK or NOT
+                        img = armsPos.drawHit(img, events, datum.poseKeypoints)    # Draws if hit were OK or NOT
                         txtFrames = txtFrames + 1
 
             end = time.time()
@@ -203,7 +206,7 @@ def main():
     finally:
         print('Saving logs....')
         cam.stop()
-        wristPos.logOnDisk()
+        armsPos.logOnDisk()
         for i in range(0,joy.jCount):
             m5[i].stop()  # Logs force readings when stopped
         joy.stop()   # No need to log 
@@ -215,7 +218,7 @@ def main():
         for i in range(0,joy.jCount):
             time.sleep(2)
             print (m5[i].log_file)
-            wristPos.joinCsvLogs( m5[i].log_file, midi.log_file, wristPos.log_file, FULL_LOG_FILE )
+            armsPos.joinCsvLogs( m5[i].log_file, midi.log_file, armsPos.log_file, FULL_LOG_FILE )
         print('Taiko Rehab has stopped....  Bye bye ( n o n ) p ')
 
 # except Exception as e:

@@ -5,20 +5,14 @@ import math
 import sys
 import vlc
 import numpy as np
-import pyrealsense2 as rs
 from threading import Thread
 
-# OPENCV GLOBAL VARIABLES 
-OP_MODELS_PATH = "C:\\openpose\\openpose\\models\\" # OpenPose models folder
-OP_PY_DEMO_PATH = "C:\\openpose\\openpose\\build\\examples\\tutorial_api_python\\"  # OpenPose 
-CAM_OPCV_ID = 1    # Open CV camera ID   (IS NOT USED ANYMORE)
-MAX_TXT_FRAMES = 5  # Number of frames the text wrist will be in the screen
-MAX_NUM_PEOPLE = 1  # Nuber of users detected with OpenCV. -1 for No limit
-
-# PROGRAM GLOBAL VARIABLES
-FULL_LOG_FILE = 'full_log.csv'
-FORCE_LOG_NAME = 'force_log_' 
-WRIST_LOG_NAME = 'wrist_angle_log.csv'
+# IMPORTING GLOBAL PARAMETERS (for OpenPose control)
+from include.globals import OP_PY_DEMO_PATH
+from include.globals import OP_MODELS_PATH
+from include.globals import CAM_OPCV_ID
+from include.globals import MAX_NUM_PEOPLE
+from include.globals import MAX_TXT_FRAMES
 
 class VideoDisplay():
 
@@ -150,7 +144,6 @@ class VideoDisplay():
     # Get the frames for the 
     def get_frame(self, timestamp):
         while self.play:            
-
             self.length = self.player.get_length()
             self.video_time = self.player.get_time()
             timestamp.value = self.video_time

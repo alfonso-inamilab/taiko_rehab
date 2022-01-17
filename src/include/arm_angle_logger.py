@@ -21,12 +21,14 @@ class ArmAngleLog:
         self.resY = resY
         self.INDEX_POS = 100
         self.SCORE_POS = 60
-        self.wristLogs = []
+        self.armsLogs = []
         self.prev_time = 0
 
         self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm angular positions
         self.user_arms_vel = [0.0, 0.0, 0.0, 0.0]   # current arm angular velocities
         self.prev_arms_pos = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
+        self.red =   (0,0,255)  #B,G,R colors to draw the Skeleton
+        self.green = (0,255,0)  #B,G,R colors to draw the Skeleton
 
     # Opens CSV file with pre-procesed angles and uploads it to memory 
     def initVideoAngles(self, file):
@@ -57,7 +59,7 @@ class ArmAngleLog:
 
     # Compares the users's arm position with the video arms position
     # returns true if the difference is bellow the given threshold (left_arm, left_arm)
-    def drawArmsMatch(self, timestamp, threshold):
+    def getArmsMatch(self, timestamp, threshold):
         video_arms = self.getCurrentAngles(timestamp.value)  # Gets the video arms position from the CSV file
         if video_arms is None:
             return 
@@ -77,7 +79,9 @@ class ArmAngleLog:
         if (rsim_shoulder > threshold) and (rsim_arm > threshold) and (rsim_forearm > threshold):
             right = True
 
-        print (str(left) + " , " + str(right))
+        print (str(left) + " , " + str(right))   # DEBUG ONLY
+        return [left, right]
+        
 
     # Draws if hit were OK or NOT over the users' head
     def drawHit(self, img, events, poses):
@@ -107,6 +111,11 @@ class ArmAngleLog:
         for i, pose in enumerate(poses):
             chest = ( int(pose[1][0]), int(pose[1][1] - self.INDEX_POS )   )  # Head pos
             img = cv2.putText(img, str(i), chest, font, fontScale, (255, 0, 0), thickness, cv2.LINE_AA)
+        return img
+
+    # Draws the skeleton of the given pose in the given image  (ONLY ARMS are DRAWN) 
+    def drawSkeleton(self, img, poses, matches):
+
         return img
 
     # Gets the vectors of the shoulder, arm and forearm
@@ -144,7 +153,7 @@ class ArmAngleLog:
             user_arms.append( (now, left_arm_vel, right_arm_vel, left_sh_vel, right_sh_vel) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
 
-        self.wristLogs.append(user_arms)
+        self.armsLogs.append(user_arms)
 
     
     # calculates the angle between two given vectors
@@ -164,32 +173,32 @@ class ArmAngleLog:
         vec_norm2 = np.linalg.norm(vector_2)
         return (cdot / (vec_norm1 * vec_norm2))
 
-    # Save the wrist position on CSV Format
+    # Save the arms and shoulders position on CSV Format
     def logOnDisk(self):
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
             wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Left_Height(Norm)', 'Right_Height(Norm)', 'Left_Height(Raw)', 'Right_Height(Raw)'])
             first_event = 0
-            for i, line in enumerate(self.wristLogs):
+            for i, line in enumerate(self.armsLogs):
                 if i ==0:
                     first_event = line[0][0]
                 wr.writerow(['0', line[0][0]-first_event, line[0][0], line[0][1], line[0][2], line[0][3], line[0][4] ])
 
-            del self.wristLogs[:]   #clean logged wrist positions
+            del self.armsLogs[:]   #clean logged wrist positions
 
     # Joins all the CSV log files into a single file (Using Pandas)
-    def joinCsvLogs(self, force_log_file, midi_log_file , wrist_log_file, full_log_file ):
+    def joinCsvLogs(self, force_log_file, midi_log_file , arms_log_file, full_log_file ):
         # Open every CSV in a independent dataframe
         force = pd.read_csv(force_log_file, index_col=None, header=0)
-        wrist = pd.read_csv(wrist_log_file, index_col=None, header=0)
+        arms = pd.read_csv(arms_log_file, index_col=None, header=0)
         midi = pd.read_csv(midi_log_file, index_col=None, header=0)
-        # Merge force and wrist data frames
-        force_wrist = pd.concat([force,wrist])
-        force_wrist = force_wrist.sort_values('Time(epoch)')
-        # Merge force wrist and midi dataframes
-        force_wrist_midi =  pd.concat([force_wrist, midi])
-        force_wrist_midi = force_wrist_midi.sort_values('Time(epoch)')
-        force_wrist_midi = force_wrist_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
-        force_wrist_midi.to_csv(full_log_file, index=False)   # Save on CSV file
+        # Merge force and arms data frames
+        force_arms = pd.concat([force,arms])
+        force_arms = force_arms.sort_values('Time(epoch)')
+        # Merge force arms and midi dataframes
+        force_arms_midi =  pd.concat([force_arms, midi])
+        force_arms_midi = force_arms_midi.sort_values('Time(epoch)')
+        force_arms_midi = force_arms_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
+        force_arms_midi.to_csv(full_log_file, index=False)   # Save on CSV file
                     

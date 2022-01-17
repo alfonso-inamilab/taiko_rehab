@@ -52,7 +52,7 @@ https://www.amazon.co.jp/gp/product/B07T9DZBW9
 | Hit | HIT if the user hit the note, MISS if not | string |
 
 ## Configuration
-The program has many control paramters. The value of these constants can be modified inside the `include/control_params.py` file. 
+The program has many control paramters. The value of these constants can be modified inside the `include/globals.py` file. 
 
 - OP_MODELS_PATH - OpenPose models folder
 - OP_PY_DEMO_PATH - OpenPose main path folder 

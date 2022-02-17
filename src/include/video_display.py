@@ -11,44 +11,44 @@ from threading import Thread
 from include.globals import OP_PY_DEMO_PATH
 from include.globals import OP_MODELS_PATH
 from include.globals import CAM_OPCV_ID
-from include.globals import MAX_NUM_PEOPLE
 from include.globals import MAX_TXT_FRAMES
 
 class VideoDisplay():
 
-    def __init__(self, filepath, timestamp, deque_size):
-        self.cap = None
-        self.filepath = filepath
-
+    def __init__(self, videopath, timestamp, deque_size, video_scale=1.0):
         self.get_frame_thread = Thread(target=self.get_frame, args=([timestamp]))
 
         self.play = False
         self.fps = 0
         self.length = 0
         self.video_time = -666
-        self.player = vlc.MediaPlayer(self.filepath)
-        self.player.video_set_scale(0.25)
+        self.player = None
+        self.player = vlc.MediaPlayer(videopath)
+        self.player.video_set_scale(video_scale)
 
-        # Init OpenCV objects
-        self.cap = cv2.VideoCapture(self.filepath)
-        # Check if video can be open
-        if self.cap.isOpened() == False:
-            print("Error opening the instructor video file.")
-        # Get video frame per seconds
-        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
-        self.f_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Get camera resolution 
-        self.resX = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)  
-        self.resY = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
 
     # Pre process the video and save the angular velocity of the instructor in a separate file
     # the craeted file saves the: [ frame number, right_elbow, right_shoulder, left_elbow, left_shoulder ]
-    def video_pre_proc(self, dir_path):
+    def video_pre_proc(self, videopath, save_csv_path):
+
+        # Init OpenCV objects
+        cap = cv2.VideoCapture(videopath)
+        # Check if video can be open
+        if cap.isOpened() == False:
+            print("Error opening the instructor video file.")
+        # Get video frame per seconds
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
+        self.f_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        # Get camera resolution 
+        self.resX = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  
+        self.resY = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+
         try:       
             # Change these variables to point to the correct folder (Release/x64 etc.)
-            sys.path.append(dir_path + '/../../python/openpose/Release');
-            os.environ['PATH']  = os.environ['PATH'] + ';' + dir_path + '/../../x64/Release;' +  dir_path + '/../../bin;'
+            sys.path.append(OP_PY_DEMO_PATH + '/../../python/openpose/Release');
+            os.environ['PATH']  = os.environ['PATH'] + ';' + OP_PY_DEMO_PATH + '/../../x64/Release;' +  OP_PY_DEMO_PATH + '/../../bin;'
             import pyopenpose as op
         except ImportError as e:
             print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
@@ -56,7 +56,7 @@ class VideoDisplay():
 
         params = dict()
         params["model_folder"] = OP_MODELS_PATH
-        params["number_people_max"] = MAX_NUM_PEOPLE
+        params["number_people_max"] = 1 #MAX_NUM_PEOPLE
 
         # Init OpenPose python wrapper
         opWrapper = op.WrapperPython()
@@ -64,41 +64,39 @@ class VideoDisplay():
         opWrapper.start()
         datum = op.Datum()
 
-        f_name, ext = os.path.splitext(self.filepath)
-        logfile = f_name + '.csv'
-        with open(logfile, 'w',  newline='') as csvfile:
+        with open(save_csv_path, 'w',  newline='') as csvfile:
             writer = csv.writer(csvfile)  
-            while (self.cap.isOpened()):            
+            while (cap.isOpened()):            
                 # Read next frame from stream and insert into deque
-                ret, image = self.cap.read()  #uv camera
+                ret, image = cap.read()  #uv camera
                 if ret:
                     datum.cvInputData = image
                     opWrapper.emplaceAndPop(op.VectorDatum([datum])) 
                     
-                    #  Get the angles of the arms and shoulders
+                    #  Get the vectors of the arms and shoulders
                     if datum.poseKeypoints is not None:
-                        angles = self.getArmsAngles2(datum.poseKeypoints)
-                        print(angles)
+                        vectors = self.getArmsVectors(datum.poseKeypoints)
+                        print(vectors)
                         img_out = datum.cvOutputData
                         cv2.imshow("Taiko Rehab", img_out)  # open pose img
                         key = cv2.waitKey(1)
                         if key == 27  or key & 0xFF == ord('q'):   # ESC or q to exit
                             break
 
-                    timestamp = self.cap.get(cv2.CAP_PROP_POS_MSEC)
+                    timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
                     # [timestamp, left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
-                    writer.writerow( [timestamp, angles[0][0], angles[0][1],
-                                                 angles[1][0], angles[1][1],
-                                                 angles[2][0], angles[2][1],
-                                                 angles[3][0], angles[3][1],
-                                                 angles[4][0], angles[4][1],
-                                                 angles[5][0], angles[5][1] ] )
+                    writer.writerow( [timestamp, vectors[0][0], vectors[0][1],
+                                                 vectors[1][0], vectors[1][1],
+                                                 vectors[2][0], vectors[2][1],
+                                                 vectors[3][0], vectors[3][1],
+                                                 vectors[4][0], vectors[4][1],
+                                                 vectors[5][0], vectors[5][1] ] )
                                   
                 else:
                     break
 
             csvfile.close()
-            self.cap.release()
+            cap.release()
             cv2.destroyAllWindows()
 
     # Returns the vectors of the shoulder, arm and forearm
@@ -137,9 +135,20 @@ class VideoDisplay():
 
     # Stops the reading frame thread
     def stop(self):
-        # self.cap.release()
         self.play = False
         self.player.stop()
+
+
+    def getHMSTime(self, millis):
+        millis = int(millis)
+        seconds=(millis/1000)%60
+        frac = int ( (seconds % 1) * 1000) 
+        seconds = int(seconds)
+        minutes=(millis/(1000*60))%60
+        minutes = int(minutes)
+        hours=(millis/(1000*60*60))%24
+
+        return ("%02d:%02d:%02d.%03d" % (hours, minutes, seconds, frac))
 
     # Get the frames for the 
     def get_frame(self, timestamp):
@@ -147,6 +156,7 @@ class VideoDisplay():
             self.length = self.player.get_length()
             self.video_time = self.player.get_time()
             timestamp.value = self.video_time
+            # print (self.getHMSTime(self.video_time))
 
             # Check if the video finish playing
             if self.video_time >= self.length and (self.video_time !=0 and self.length !=0):

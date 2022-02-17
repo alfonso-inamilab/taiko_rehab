@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import pyrealsense2 as rs
 from threading import Thread
 from collections import deque
 

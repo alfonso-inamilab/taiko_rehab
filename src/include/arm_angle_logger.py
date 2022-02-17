@@ -24,11 +24,8 @@ class ArmAngleLog:
         self.armsLogs = []
         self.prev_time = 0
 
-        self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm angular positions
-        self.user_arms_vel = [0.0, 0.0, 0.0, 0.0]   # current arm angular velocities
-        self.prev_arms_pos = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
-        # self.red =   (0,0,255)  #B,G,R colors to draw the Skeleton
-        self.green = (0,255,0)  #B,G,R colors to draw the Skeleton
+        self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm/shoulder vector positions
+        self.prev_arms_angle = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
 
     # Opens CSV file with pre-procesed angles and uploads it to memory 
     def initVideoAngles(self, file):
@@ -102,17 +99,21 @@ class ArmAngleLog:
                 img = cv2.putText(img, " X ", chest, font, fontScale, (0, 0, 255), thickness, cv2.LINE_AA)
             return img
 
-    # Draws the OpenPose person index over the users' head
-    def drawPersonNum(self, img, poses):
-        font = cv2.FONT_HERSHEY_SIMPLEX  # font
-        org = (50, 50)  # org
-        fontScale = 1  # fontScale
-        thickness = 2  # Line thickness of 2 px
-
-        for i, pose in enumerate(poses):
-            chest = ( int(pose[1][0]), int(pose[1][1] - self.INDEX_POS )   )  # Head pos
-            img = cv2.putText(img, str(i), chest, font, fontScale, (255, 0, 0), thickness, cv2.LINE_AA)
+    # Draws the sensei arms over the users arms 
+    def drawSenseiArms(self, img, poses):
         return img
+
+    # Draws the OpenPose person index over the users' head
+    # def drawPersonNum(self, img, poses):
+    #     font = cv2.FONT_HERSHEY_SIMPLEX  # font
+    #     org = (50, 50)  # org
+    #     fontScale = 1  # fontScale
+    #     thickness = 2  # Line thickness of 2 px
+
+    #     for i, pose in enumerate(poses):
+    #         chest = ( int(pose[1][0]), int(pose[1][1] - self.INDEX_POS )   )  # Head pos
+    #         img = cv2.putText(img, str(i), chest, font, fontScale, (255, 0, 0), thickness, cv2.LINE_AA)
+    #     return img
 
     # Gets a gradient between white and green
     # def whiteGreenGradient(self, match):
@@ -126,22 +127,29 @@ class ArmAngleLog:
     # Draws the skeleton of the given pose in the given image  (ONLY ARMS are DRAWN) 
     def drawSkeleton(self, img, poses, matches, threshold):
         for i, pose in enumerate(poses): 
+            if matches is None:
+                return img
+        
             # LEFT ARM
             # color = self.whiteGreenGradient(matches[0])
-            color = (0, 255, 0); 
-            if matches[0] < threshold:
-                color = (0, 0, 255)
-            img = cv2.line(img, (int(pose[7][0]),int(pose[7][1])) , (int(pose[6][0]),int(pose[6][1]))  , color, 5)
-            img = cv2.line(img, (int(pose[6][0]),int(pose[6][1])) , (int(pose[5][0]),int(pose[5][1]))  , color, 5)
-            img = cv2.line(img, (int(pose[5][0]),int(pose[5][1])) , (int(pose[1][0]),int(pose[1][1]))  , color, 5)
+            # First check if the left arm was detected
+            if ( (pose[7][0] + pose[7][1] != 0) and (pose[6][0] + pose[6][1] !=0) and (pose[5][0] + pose[5][1] !=0) and (pose[1][0] + pose[1][1] !=0) ):
+                color = (0, 255, 0); 
+                if matches[0] < threshold:
+                    color = (0, 0, 255)
+                img = cv2.line(img, (int(pose[7][0]),int(pose[7][1])) , (int(pose[6][0]),int(pose[6][1]))  , color, 5)
+                img = cv2.line(img, (int(pose[6][0]),int(pose[6][1])) , (int(pose[5][0]),int(pose[5][1]))  , color, 5)
+                img = cv2.line(img, (int(pose[5][0]),int(pose[5][1])) , (int(pose[1][0]),int(pose[1][1]))  , color, 5)
             # RIGHT ARM
             # color = self.whiteGreenGradient(matches[1])
-            color = (0, 255, 0); 
-            if matches[1] < threshold:
-                color = (0, 0, 255)
-            img = cv2.line(img, (int(pose[1][0]),int(pose[1][1])) , (int(pose[2][0]),int(pose[2][1]))  , color, 5)
-            img = cv2.line(img, (int(pose[2][0]),int(pose[2][1])) , (int(pose[3][0]),int(pose[3][1]))  , color, 5)
-            img = cv2.line(img, (int(pose[3][0]),int(pose[3][1])) , (int(pose[4][0]),int(pose[4][1]))  , color, 5)
+            # Check if the right arm was detected
+            if ( (pose[2][0] + pose[2][1] != 0) and (pose[3][0] + pose[3][1] !=0) and (pose[4][0] + pose[4][1] !=0) and (pose[1][0] + pose[1][1] !=0) ):
+                color = (0, 255, 0); 
+                if matches[1] < threshold:
+                    color = (0, 0, 255)
+                img = cv2.line(img, (int(pose[1][0]),int(pose[1][1])) , (int(pose[2][0]),int(pose[2][1]))  , color, 5)
+                img = cv2.line(img, (int(pose[2][0]),int(pose[2][1])) , (int(pose[3][0]),int(pose[3][1]))  , color, 5)
+                img = cv2.line(img, (int(pose[3][0]),int(pose[3][1])) , (int(pose[4][0]),int(pose[4][1]))  , color, 5)
             break # Do it only for the first found person
     
         return img
@@ -166,19 +174,29 @@ class ArmAngleLog:
 
             self.user_arms_pos = self.getArmsVectors(pose)
 
+            # calculate the arms and shoulder angles
+            # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+            left_sh_angle =  self.calcVectorAngle(self.user_arms_pos[0], self.user_arms_pos[2])  # left_shoulder and left_arm
+            right_sh_angle = self.calcVectorAngle(self.user_arms_pos[1], self.user_arms_pos[3])  # right_shoulder and right_arm
+            left_arm_angle = self.calcVectorAngle(self.user_arms_pos[2], self.user_arms_pos[4])  # left_arm and left_forearm
+            right_arm_angle = self.calcVectorAngle(self.user_arms_pos[3], self.user_arms_pos[5])  # right_arm and right_forearm
+
+            # Calculate the angular velocity
             now_sec =int ( time.time_ns() / 100000000)
             dt = now_sec - self.prev_time 
-            left_arm_vel  = (self.prev_arms_pos[0] - self.user_arms_pos[0]) / dt   # left arm vel  
-            right_arm_vel = (self.prev_arms_pos[1] - self.user_arms_pos[1]) / dt   # right arm vel
+            left_sh_vel  = (self.prev_arms_angle[0] - left_sh_angle) / dt   # left shoulder vel
+            right_sh_vel = (self.prev_arms_angle[1] - right_sh_angle) / dt   # right shoulder vel
+            left_arm_vel  = (self.prev_arms_angle[2] - left_arm_angle) / dt   # left arm vel  
+            right_arm_vel = (self.prev_arms_angle[3] - right_arm_angle) / dt   # right arm vel
 
-            left_sh_vel  = (self.prev_arms_pos[2] - self.user_arms_pos[2]) / dt   # left shoulder vel
-            right_sh_vel = (self.prev_arms_pos[3] - self.user_arms_pos[3]) / dt   # right shoulder vel
-
-            self.prev_arms_pos = self.user_arms_pos
+            # saving current angle for next loop
+            # [left_shoulder_angle, right_shoulder_angle, left_arm_angle, right_arm_angle]
+            self.prev_arms_angle[0] = left_sh_angle;  self.prev_arms_angle[1] = right_sh_angle; 
+            self.prev_arms_angle[2] = left_arm_angle; self.prev_arms_angle[3] = right_arm_angle; 
             self.prev_time = now_sec
 
             now = int(time.time() * 1000)
-            user_arms.append( (now, left_arm_vel, right_arm_vel, left_sh_vel, right_sh_vel) )  # 0 max 1 min
+            user_arms.append( (now, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
 
         self.armsLogs.append(user_arms)
@@ -206,7 +224,7 @@ class ArmAngleLog:
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Left_Height(Norm)', 'Right_Height(Norm)', 'Left_Height(Raw)', 'Right_Height(Raw)'])
+            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Left_Sh_Vel', 'Right_Sh_Vel', 'Left_Arm_Vel', 'Right_Arm_Vel'])
             first_event = 0
             for i, line in enumerate(self.armsLogs):
                 if i ==0:

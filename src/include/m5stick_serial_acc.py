@@ -1,13 +1,18 @@
 import serial
 import time
 import csv
+import serial.tools.list_ports
+
 from multiprocessing import Process, Value
 
 class M5SerialCom:
-    def __init__(self, bauds, port, joyForces, joyIndex, log_file):
+    def __init__(self, bauds, joyForces, joyIndex, log_file):
         # Init serial
         self.baudrate = bauds
-        self.port = port
+        self.port = self.getSerialPort()
+        if self.port == None:  # If nothing is found use COM5 as a default port (to avoid program crash)
+            self.port = 'COM5' 
+
         self.log_file = log_file
         self.ser = None
         self.lastMax = 0.0
@@ -19,6 +24,18 @@ class M5SerialCom:
         self.LAST_MAX_LEN = 3
         self.JOYSTICK_MASS = 0.1   # 100 gr mass in kilograms to calculate Force from Acceleration
 
+    # Init Serial port (COM)
+    # Search for the M5 stick and connects it to the right COM port
+    def getSerialPort(self):
+        ports = serial.tools.list_ports.comports()
+        # Serial ouput of a couple of M5SticksC
+        # COM7: USB Serial Port (COM7) [USB VID:PID=0403:6001]
+        # COM5: USB Serial Port (COM5) [USB VID:PID=0403:6001 SER=75523506B6A]
+        for port, desc, hwid in sorted(ports):
+            # print("{}: {} [{}]".format(port, desc, hwid))
+            if "0403:6001" in hwid:
+                return port
+
     # starts the thread 
     def start(self):
         self.stopFlag.value = True
@@ -27,6 +44,13 @@ class M5SerialCom:
     # stops the thread main cycle
     def stop(self):
         self.stopFlag.value = False
+
+    # returns false if the M5stick is not connected
+    def m5Check(self):
+        if self.getSerialPort() is None:
+            return False
+        else:
+            return True
 
     # when the thread is stopped log all captured data on disk
     # (must be called inside the thread process)
@@ -59,12 +83,12 @@ class M5SerialCom:
             print ("ERROR: Cannot open serial port " + str(self.port))
             return False
 
-        now = int(time.time() * 1000)
+        now = int(time.time_ns() / 1000000)
         readLine = self.ser.readline()
         self.accLogBuff.append( (now, readLine)  )
         fMax = 0
         while stopFlag.value:
-            now = int(time.time() * 1000)
+            now = int(time.time_ns() / 1000000)
             readLine = ( self.ser.readline() )
             self.accLogBuff.append( (now, readLine)  )
             fMax = fMax + 1

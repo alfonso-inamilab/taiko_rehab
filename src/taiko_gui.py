@@ -18,11 +18,12 @@ from include.globals import ARMS_LOG_NAME
 from include.globals import MIDI_LOG_NAME
 from include.globals import MIDI_MAX_PAST
 from include.globals import MIDI_MAX_FUTURE
-from include.globals import MIDI_PLAY_HITS
-from include.globals import MIDI_PLAY_ALL_NOTES
-from include.globals import MIDI_INS_CH
-from include.globals import MIDI_DRUMS_CH
+from include.globals import MIDI_PLAY_GOOD_HITS
+from include.globals import MIDI_PLAY_ALL_HITS
+from include.globals import MIDI_PLAY_MIDIFILE_NOTES
 from include.globals import DRAW_SENSEI_ARMS
+from include.globals import DRAW_HITS
+from include.globals import JOY_BUFF_SIZE
 
 
 # IMPORT CLASS FOR THE TAIKO MAIN PROGRAM CONTROL
@@ -49,11 +50,11 @@ class taikoGUI():
         self.txt9 = None
         self.txt11 = None
         self.txt12 = None
-        self.txt13 = None
-        self.txt14 = None
-        self.midi_play_all = None
-        self.midi_play_hits = None
+        self.midi_play_file_notes = None
+        self.midi_play_good_hits = None
+        self.midi_play_all_hits = None
         self.draw_sensei_arms = None
+        self.draw_hits = None
 
         self.combo3 = None
         self.instructor = None
@@ -77,16 +78,15 @@ class taikoGUI():
             f.write("ARMS_LOG_NAME = \"" + self.txt8.get().replace('\\','\\\\')  + "\" \n")
             f.write("MIDI_LOG_NAME = \"" + self.txt9.get().replace('\\','\\\\')  + "\" \n")
             f.write("DRAW_SENSEI_ARMS = " + str(self.draw_sensei_arms.get())  + " \n")
-
-
+            f.write("DRAW_HITS = " + str(self.draw_hits.get())  + " \n")
 
             f.write("\n# MIDI CONTROL VARIABLES \n") 
             f.write("MIDI_MAX_PAST = "  + self.txt10.get()  + " \n")
             f.write("MIDI_MAX_FUTURE = " + self.txt11.get()  + " \n")
-            f.write("MIDI_PLAY_HITS = " + str(self.midi_play_hits.get())  + " \n")
-            f.write("MIDI_PLAY_ALL_NOTES = " + str(self.midi_play_all.get())  + " \n")
-            f.write("MIDI_INS_CH = "  + self.txt12.get()  + " \n")
-            f.write("MIDI_DRUMS_CH = " + self.txt13.get()  + " \n")
+            f.write("MIDI_PLAY_GOOD_HITS = " + str(self.midi_play_good_hits.get())  + " \n")
+            f.write("MIDI_PLAY_ALL_HITS = " + str(self.midi_play_all_hits.get())  + " \n")
+            f.write("MIDI_PLAY_MIDIFILE_NOTES = " + str(self.midi_play_file_notes.get())  + " \n")
+            f.write("JOY_BUFF_SIZE = " + self.txt12.get()  + " \n")
 
 
         print('Taiko Rehab has stopped....  Bye bye ( n o n ) p ')
@@ -110,6 +110,13 @@ class taikoGUI():
         if ff is not None:
             txt.delete(0, tk.END)
             txt.insert(0, ff.name)
+
+    # Toogles the value of all and only good hits, because both options are excluyent 
+    def midi_play_all_hits_checked(self):
+        self.midi_play_good_hits.set(False) 
+
+    def midi_play_good_hits_checked(self):
+        self.midi_play_all_hits.set(False)
 
     def videoPreProcess(self):
         video_path = self.txt01.get()
@@ -150,7 +157,12 @@ class taikoGUI():
             messagebox.showerror(title="Taiko Rehab Error", message="ERROR: MIDI file not found. " )
             return None
 
-        self.taiko_ctrl.initThreads(csv_path, video_path, midi_path)
+        checks = self.taiko_ctrl.initThreads(csv_path, video_path, midi_path)
+        if checks[0] == False:
+            messagebox.showerror(title="Taiko Rehab Warning", message="Warning: The Taiko Joystick is not connected to the PC. \nPlease connect it and restart the program." )
+        if checks[1] == False:
+            messagebox.showerror(title="Taiko Rehab Warning", message="Warning: The M5StickC is not connected to the PC.\n(Force sensor). \nPlease connect it and restart the program." )
+
         self.taiko_ctrl.startTraining()
         
 
@@ -294,39 +306,41 @@ class taikoGUI():
         self.txt11.insert(tk.END, MIDI_MAX_FUTURE)
         self.txt11.grid(column=1, row=14, sticky="w")
 
-        lbl12 = ttk.Label(tab2, text= 'Hits MIDI Channel (normal instrument 1ch-8ch)')
+        lbl12 = ttk.Label(tab2, text= 'Joystick inputs buffer size')
         lbl12.grid(column=0, row=15)
         self.txt12 = ttk.Entry(tab2 ,width=50)
-        self.txt12.insert(tk.END, MIDI_INS_CH)
+        self.txt12.insert(tk.END, JOY_BUFF_SIZE)
         self.txt12.grid(column=1, row=15, sticky="w")
 
-        lbl13 = ttk.Label(tab2, text= 'Hits MIDI Channel (drums 9ch-16ch)')
-        lbl13.grid(column=0, row=16)
-        self.txt13 = ttk.Entry(tab2 ,width=50)
-        self.txt13.insert(tk.END, MIDI_DRUMS_CH)
-        self.txt13.grid(column=1, row=16, sticky="w")
-
-
-        self.midi_play_hits = tk.BooleanVar(value = MIDI_PLAY_HITS)
-        check1 = tk.Checkbutton(tab2, text = "Play user's GOOD hits",  variable=self.midi_play_hits )
+        self.midi_play_good_hits = tk.BooleanVar(value = MIDI_PLAY_GOOD_HITS)
+        check1 = tk.Checkbutton(tab2, text = "Play only GOOD timming drum hits",  variable=self.midi_play_good_hits, command=self.midi_play_good_hits_checked )
         check1.grid(column=0, row=17)
-        
-        self.midi_play_all = tk.BooleanVar(value = MIDI_PLAY_ALL_NOTES)
-        check2 = tk.Checkbutton(tab2, text = "Play All MIDI Notes (DEBUG ONLY)",  variable=self.midi_play_all )
+
+        self.midi_play_all_hits = tk.BooleanVar(value = MIDI_PLAY_ALL_HITS)
+        check2 = tk.Checkbutton(tab2, text = "Play ALL drum hits",  variable=self.midi_play_all_hits, command=self.midi_play_all_hits_checked  )
         check2.grid(column=1, row=17)
 
-        sep4 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=18, columnspan=5, ipadx=300)
-        lsep4 = ttk.Label(tab2, text="Training  options").grid(column=3, row=18)
+        self.midi_play_file_notes = tk.BooleanVar(value = MIDI_PLAY_MIDIFILE_NOTES)
+        check3 = tk.Checkbutton(tab2, text = "Play notes from MIDI file",  variable=self.midi_play_file_notes )
+        check3.grid(column=2, row=17)
 
+        sep4 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=20, columnspan=5, ipadx=300)
+        lsep4 = ttk.Label(tab2, text="Training  options").grid(column=3, row=20)
+
+        # THIS ELEMENT INDEXES ARE OUT OF ORDER (cut and pasted into other section)
         lbl4 = ttk.Label(tab2, text= 'Max Frames for Visual Feedback')
-        lbl4.grid(column=0, row=19)
+        lbl4.grid(column=0, row=21)
         self.txt4 = ttk.Entry(tab2 ,width=50)
         self.txt4.insert(tk.END, MAX_TXT_FRAMES)
-        self.txt4.grid(column=1, row=19, sticky="W")
+        self.txt4.grid(column=1, row=21, sticky="W")
 
         self.draw_sensei_arms = tk.BooleanVar(value = DRAW_SENSEI_ARMS)
-        check3 = tk.Checkbutton(tab2, text = "Draw Sensei arms over User", variable=self.draw_sensei_arms )
-        check3.grid(column=0, row=25)
+        check4 = tk.Checkbutton(tab2, text = "Draw Sensei arms over User", variable=self.draw_sensei_arms )
+        check4.grid(column=0, row=27)
+
+        self.draw_hits = tk.BooleanVar(value = DRAW_HITS)
+        check5 = tk.Checkbutton(tab2, text = "Draw User's hits feedback", variable=self.draw_hits )
+        check5.grid(column=1, row=27)
 
         # lbl10 = ttk.Label(tab2, text= 'Visual Feedback')
         # lbl10.grid(column=0, row=13)
@@ -344,7 +358,7 @@ class taikoGUI():
         # check2.grid(column=2, row=13)
 
         btn = ttk.Button(tab2, text="Save & Close", command=self.save)
-        btn.grid(column=1, row=20)
+        btn.grid(column=1, row=33)
 
         tab_control.pack(expand=1, fill='both')
         self.window.mainloop()

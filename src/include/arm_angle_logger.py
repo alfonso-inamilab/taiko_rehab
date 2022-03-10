@@ -4,7 +4,6 @@ import math
 import csv
 import pandas as pd
 import numpy as np
-from pprint import pprint
 from array import array
 from threading import Thread
 
@@ -16,48 +15,105 @@ class ArmAngleLog:
         self.log_file = log_file
         self.video_angles = None
         self.v_len = 0
-        self.initVideoAngles(video_angles_file)
+        self.video_angles = self.initVideoArmPoses(video_angles_file)
+        self.v_len = len(self.video_angles)
         self.resX = resX
         self.resY = resY
         self.INDEX_POS = 100
         self.SCORE_POS = 60
         self.armsLogs = []
         self.prev_time = 0
+        self.video_angles_index = 0 # The search index of the instructor poses
+        self.arms_hlog = []
 
         self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm/shoulder vector positions
         self.prev_arms_angle = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
 
     # Opens CSV file with pre-procesed angles and uploads it to memory 
-    def initVideoAngles(self, file):
-        self.video_angles = []
+    # def initVideoAngles(self, file):
+    #     self.video_angles = []
+    #     with open(file, newline='') as csvfile:
+    #         reader = csv.reader(csvfile, delimiter=',')
+    #         for row in reader:
+    #             time = float(row[0])
+    #             # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+    #             left_shoulder = [float(row[1]), float(row[2]) ]
+    #             right_shoulder = [float(row[3]), float(row[4]) ]
+    #             left_arm = [float(row[5]), float(row[6]) ]
+    #             right_arm = [float(row[7]), float(row[8]) ]
+    #             left_foream = [ float(row[9]), float(row[10]) ]
+    #             right_foream = [ float(row[11]), float(row[12]) ]
+    #             self.video_angles.append( [ time, left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ] )
+
+    #     self.v_len = len(self.video_angles)
+
+    # Opens CSV file with pre-procesed angles and uploads it to memory (raw version for JSON files extraction)
+    def initVideoArmPoses(self, file):
+        video_poses = []
         with open(file, newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter=',')
-            for row in reader:
-                time = float(row[0])
-                # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
-                left_shoulder = [float(row[1]), float(row[2]) ]
-                right_shoulder = [float(row[3]), float(row[4]) ]
-                left_arm = [float(row[5]), float(row[6]) ]
-                right_arm = [float(row[7]), float(row[8]) ]
-                left_foream = [ float(row[9]), float(row[10]) ]
-                right_foream = [ float(row[11]), float(row[12]) ]
-                self.video_angles.append( [ time, left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ] )
+            for row in reader: 
+                # frame = float(row[0])
+                # left_shoulder = [float(row[(5*3)+1]), float(row[(5*3)+2]) ]
+                # right_shoulder = [float(row[(2*3)+1]), float(row[(2*3)+2]) ]
+                # left_arm = [float(row[(6*3)+1]), float(row[(6*3)+2]) ]
+                # right_arm = [float(row[(3*3)+1]), float(row[(3*3)+2]) ]
+                # left_hand = [float(row[(7*3)+1]), float(row[(7*3)+2]) ]
+                # right_hand = [float(row[(4*3)+1]), float(row[(4*3)+2]) ]
+                # [left_shoulder, right_shoulder, left_arm, right_arm, left_hand, right_hand ]  RAW DATA FORMAT
+                # video_poses.append( [ frame, left_shoulder, right_shoulder, left_arm, right_arm, left_hand, right_hand ] )
+                for i in range(0, len(row)):
+                    row[i] = float(row[i])
+                video_poses.append(row)
 
-        self.v_len = len(self.video_angles)
+        return video_poses
 
     # Given the time in ms, returns the vidoe arm and shoulder angles
-    def getCurrentAngles(self, time):
+    def getVideoArmsVectors(self, time, fps):
         # From 0 to len search 
-        for indx in range(0, self.v_len, 1):
-            v_time = self.video_angles[indx][0]
-            if time < v_time:
-                # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
-                return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
+        # for indx in range(0, self.v_len, 1):
+        #     v_time = self.video_angles[indx][0]
+        #     if time < v_time:
+        #         # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+        #         return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
 
+        # VER 2. Quicker search
+        # for indx in range(self.video_angles_index, self.v_len, 1):
+        #     v_time = self.video_angles[indx][0]
+        #     if time <= v_time:
+        #         self.video_angles_index = indx - 1
+        #         if (self.video_angles_index < 0):
+        #             self.video_angles_index = 0 
+        #         # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+        #         return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
+
+        # VER 3. raw Openpose data from JSON->CSV file
+        frame = int( (fps/1000) * time )
+        # left_foream = np.array( [self.video_angles[frame][7*3] - self.video_angles[frame][6*3]  ,  (self.resY - self.video_angles[frame][7*3+1]) - (self.resY - self.video_angles[frame][6*3+1]) ]  )   
+        # left_arm = np.array( [ self.video_angles[frame][5*3]-self.video_angles[frame][6*3] ,    (self.resY - self.video_angles[frame][5*3+1]) - (self.resY - self.video_angles[frame][6*3+1])  ] )
+
+        # right_foream = np.array( [self.video_angles[frame][4*3]-self.video_angles[frame][3*3]  ,  (self.resY - self.video_angles[frame][4*3+1]) - (self.resY - self.video_angles[frame][3*3+1]) ] )   
+        # right_arm = np.array( [ self.video_angles[frame][2*3]-self.video_angles[frame][3*3] ,    (self.resY - self.video_angles[frame][2*3+1]) - (self.resY - self.video_angles[frame][3*3+1])  ] )
+
+        # left_shoulder = np.array( [self.video_angles[frame][1*3]-self.video_angles[frame][5*3]  ,  (self.resY - self.video_angles[frame][1*3+1]) - (self.resY - self.video_angles[frame][5*3+1]) ] )   
+        # right_shoulder = np.array( [ self.video_angles[frame][1*3]-self.video_angles[frame][2*3] ,    (self.resY - self.video_angles[frame][1*3+1]) - (self.resY - self.video_angles[frame][2*3+1])  ] )
+
+        left_foream = np.array( [self.video_angles[frame][7*3] - self.video_angles[frame][6*3]  ,  (self.video_angles[frame][7*3+1]) - (self.video_angles[frame][6*3+1]) ]  )   
+        left_arm = np.array( [ self.video_angles[frame][5*3]-self.video_angles[frame][6*3] ,    (self.video_angles[frame][5*3+1]) - (self.video_angles[frame][6*3+1])  ] )
+
+        right_foream = np.array( [self.video_angles[frame][4*3]-self.video_angles[frame][3*3]  ,  (self.video_angles[frame][4*3+1]) - (self.video_angles[frame][3*3+1]) ] )   
+        right_arm = np.array( [ self.video_angles[frame][2*3]-self.video_angles[frame][3*3] ,    (self.video_angles[frame][2*3+1]) - (self.video_angles[frame][3*3+1])  ] )
+
+        left_shoulder = np.array( [self.video_angles[frame][1*3]-self.video_angles[frame][5*3]  ,  (self.video_angles[frame][1*3+1]) - (self.video_angles[frame][5*3+1]) ] )   
+        right_shoulder = np.array( [ self.video_angles[frame][1*3]-self.video_angles[frame][2*3] ,    (self.video_angles[frame][1*3+1]) - (self.video_angles[frame][2*3+1])  ] )
+
+
+        return [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
+        
     # Compares the users's arm position with the video arms position
     # returns true if the difference is bellow the given threshold (left_arm, left_arm)
-    def getArmsMatch(self, timestamp, threshold):
-        video_arms = self.getCurrentAngles(timestamp.value)  # Gets the video arms position from the CSV file
+    def getArmsMatch(self, timestamp, fps, threshold):
+        video_arms = self.getVideoArmsVectors(timestamp, fps)  # Gets the video arms position from the CSV file
         if video_arms is None:
             return 
 
@@ -82,7 +138,7 @@ class ArmAngleLog:
         
 
     # Draws if hit were OK or NOT over the users' head
-    def drawHit(self, img, events, poses):
+    def drawHit(self, img, event, poses):
         font = cv2.FONT_HERSHEY_SIMPLEX  # font
         org = (50, 50)  # org
         # thickness = 2  # Line thickness of 2 px
@@ -93,14 +149,78 @@ class ArmAngleLog:
             thickness = 2 
 
             # Using cv2.putText() method
-            if events[i][4] == 1:
+            if event[1] == True:
                 img = cv2.putText(img, " OK ", chest, font, fontScale, (0, 255, 0), thickness, cv2.LINE_AA)
             else:
                 img = cv2.putText(img, " X ", chest, font, fontScale, (0, 0, 255), thickness, cv2.LINE_AA)
             return img
 
+            break  # Do it just for a single user
+
+
     # Draws the sensei arms over the users arms 
-    def drawSenseiArms(self, img, poses):
+    def drawSenseiArms(self, img, poses, matches, timestamp, fps, threshold):
+        # SLOW VERSION 
+        # frame = int( (fps/1000) * timestamp.value )        
+        # left_wrist = np.asarray([ self.video_angles[frame][7*3],  self.video_angles[frame][7*3+1] ])
+        # left_elbow = np.asarray([ self.video_angles[frame][6*3],  self.video_angles[frame][6*3+1] ])
+        # left_shoulder = np.asarray([ self.video_angles[frame][5*3],  self.video_angles[frame][5*3+1] ])
+
+        # right_wrist = np.asarray([ self.video_angles[frame][4*3],  self.video_angles[frame][4*3+1] ])
+        # right_elbow = np.asarray([ self.video_angles[frame][3*3],  self.video_angles[frame][3*3+1] ])
+        # right_shoulder = np.asarray([ self.video_angles[frame][2*3],  self.video_angles[frame][2*3+1] ])
+
+        # color = (0, 255, 0); 
+        # if matches[0] < threshold:
+        #     color = (0, 0, 255) 
+        # for i, pose in enumerate(poses):
+        #     sensei_l_elbow = np.asarray( [pose[5][0],pose[5][1]] ) + (left_elbow - left_shoulder) 
+        #     sensei_r_elbow = np.asarray( [pose[2][0],pose[2][1]] ) + (right_elbow - right_shoulder)
+
+        #     sensei_l_wrist = sensei_l_elbow + (left_wrist - left_elbow) 
+        #     sensei_r_wrist = sensei_r_elbow + (right_wrist - right_elbow)
+
+        #     img = cv2.line(img, ( int(pose[5][0]),int(pose[5][1])) , (int(sensei_l_elbow[0]),int(sensei_l_elbow[1]))  , color, 5)
+        #     img = cv2.line(img, ( int(pose[2][0]),int(pose[2][1])) , (int(sensei_r_elbow[0]),int(sensei_r_elbow[1]))  , color, 5)
+
+        #     img = cv2.line(img, ( int( sensei_l_elbow[0] ),int( sensei_l_elbow[1] )) , (int(sensei_l_wrist[0]),int(sensei_l_wrist[1]))  , color, 5)
+        #     img = cv2.line(img, ( int( sensei_r_elbow[0] ),int( sensei_r_elbow[1] )) , (int(sensei_r_wrist[0]),int(sensei_r_wrist[1]))  , color, 5)
+
+        #     break # only do it for the first user
+
+        # "FAST" VERSION
+        # print (fps, timestamp.value , int( (fps/1000) * timestamp.value ))
+        frame = int( (fps/1000) * timestamp )     
+     
+        left_wrist = [self.video_angles[frame][7*3],  self.video_angles[frame][7*3+1] ]
+        left_elbow = [self.video_angles[frame][6*3],  self.video_angles[frame][6*3+1] ]
+        left_shoulder = [ self.video_angles[frame][5*3],  self.video_angles[frame][5*3+1] ]
+
+        right_wrist = [ self.video_angles[frame][4*3],  self.video_angles[frame][4*3+1] ]
+        right_elbow = [ self.video_angles[frame][3*3],  self.video_angles[frame][3*3+1] ]
+        right_shoulder = [ self.video_angles[frame][2*3],  self.video_angles[frame][2*3+1] ]
+
+        color = (0, 255, 0); 
+        if matches[0] < threshold:
+            color = (0, 0, 255)
+        for i, pose in enumerate(poses):
+
+            sensei_l_elbow = [pose[5][0] + (left_elbow[0]-left_shoulder[0]) ,pose[5][1] + (left_elbow[1]- left_shoulder[1]) ]  
+            sensei_r_elbow = [pose[2][0] + (right_elbow[0]-right_shoulder[0]) ,pose[2][1] + (right_elbow[1]-right_shoulder[1])  ]      
+
+            sensei_l_wrist = [ sensei_l_elbow[0] + (left_wrist[0] - left_elbow[0]) , sensei_l_elbow[1] + (left_wrist[1] - left_elbow[1]) ]
+            sensei_r_wrist = [ sensei_r_elbow[0] +  (right_wrist[0] - right_elbow[0]), sensei_r_elbow[1] + (right_wrist[1] - right_elbow[1]) ]
+
+            img = cv2.line(img, ( int(pose[5][0]),int(pose[5][1])) , (int(sensei_l_elbow[0]),int(sensei_l_elbow[1]))  , color, 5)
+            img = cv2.line(img, ( int(pose[2][0]),int(pose[2][1])) , (int(sensei_r_elbow[0]),int(sensei_r_elbow[1]))  , color, 5)
+
+            img = cv2.line(img, ( int( sensei_l_elbow[0] ),int( sensei_l_elbow[1] )) , (int(sensei_l_wrist[0]),int(sensei_l_wrist[1]))  , color, 5)
+            img = cv2.line(img, ( int( sensei_r_elbow[0] ),int( sensei_r_elbow[1] )) , (int(sensei_r_wrist[0]),int(sensei_r_wrist[1]))  , color, 5)
+
+            break # only do it for the first user
+
+
+        
         return img
 
     # Draws the OpenPose person index over the users' head
@@ -156,19 +276,28 @@ class ArmAngleLog:
 
     # Gets the vectors of the shoulder, arm and forearm
     def getArmsVectors(self, pose):
-        left_foream = np.array(  [ pose[7][0] - pose[6][0] , (self.resY - pose[7][1]) - (self.resY - pose[6][1])  ] )
-        left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (self.resY - pose[5][1]) - (self.resY - pose[6][1])  ] )
+        # left_foream = np.array(  [ pose[7][0] - pose[6][0] , (self.resY - pose[7][1]) - (self.resY - pose[6][1])  ] )
+        # left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (self.resY - pose[5][1]) - (self.resY - pose[6][1])  ] )
         
-        right_foream = np.array(  [ pose[4][0] - pose[3][0] , (self.resY - pose[4][1]) - (self.resY - pose[3][1] ) ] )
-        right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (self.resY - pose[2][1]) - (self.resY - pose[3][1] ) ] )
+        # right_foream = np.array(  [ pose[4][0] - pose[3][0] , (self.resY - pose[4][1]) - (self.resY - pose[3][1] ) ] )
+        # right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (self.resY - pose[2][1]) - (self.resY - pose[3][1] ) ] )
         
-        left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (self.resY - pose[1][1]) - (self.resY - pose[5][1])  ] )
-        right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (self.resY - pose[1][1]) - (self.resY - pose[2][1])  ] )
+        # left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (self.resY - pose[1][1]) - (self.resY - pose[5][1])  ] )
+        # right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (self.resY - pose[1][1]) - (self.resY - pose[2][1])  ] )
+
+        left_foream = np.array(  [ pose[7][0] - pose[6][0] , (pose[7][1]) - (pose[6][1])  ] )
+        left_arm = np.array(  [ pose[5][0] - pose[6][0] ,    (pose[5][1]) - (pose[6][1])  ] )
+        
+        right_foream = np.array(  [ pose[4][0] - pose[3][0] , (pose[4][1]) - (pose[3][1] ) ] )
+        right_arm = np.array(  [ pose[2][0] - pose[3][0] ,    (pose[2][1]) - (pose[3][1] ) ] )
+        
+        left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (pose[1][1]) - (pose[5][1])  ] )
+        right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (pose[1][1]) - (pose[2][1])  ] )
         
         return [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
 
     # Calcuates the angular velocity between the arm/forearm and forearm/shoulder
-    def calcArmVel(self, poses):
+    def logArmsVel(self, poses):
         user_arms = []
         for i, pose in enumerate(poses): 
 
@@ -182,7 +311,7 @@ class ArmAngleLog:
             right_arm_angle = self.calcVectorAngle(self.user_arms_pos[3], self.user_arms_pos[5])  # right_arm and right_forearm
 
             # Calculate the angular velocity
-            now_sec =int ( time.time_ns() / 100000000)
+            now_sec = int(time.time_ns() / 1000000)
             dt = now_sec - self.prev_time 
             left_sh_vel  = (self.prev_arms_angle[0] - left_sh_angle) / dt   # left shoulder vel
             right_sh_vel = (self.prev_arms_angle[1] - right_sh_angle) / dt   # right shoulder vel
@@ -195,13 +324,47 @@ class ArmAngleLog:
             self.prev_arms_angle[2] = left_arm_angle; self.prev_arms_angle[3] = right_arm_angle; 
             self.prev_time = now_sec
 
-            now = int(time.time() * 1000)
+            now = int(time.time_ns() / 1000000)
             user_arms.append( (now, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
 
         self.armsLogs.append(user_arms)
 
-    
+    # Calculates the audio volume depeding on how high the user has his hands 
+    def logArmsHeight(self, poses):        
+        for i, pose in enumerate(poses): 
+
+            left_wrist = np.array(  [ pose[5][0] - pose[7][0] , (pose[5][1]) - (pose[7][1])  ] )
+            right_wrist = np.array(  [ pose[2][0] - pose[4][0] , (pose[2][1]) - (pose[4][1] ) ] )
+
+            left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (pose[1][1]) - (pose[5][1])  ] )
+            right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (pose[1][1]) - (pose[2][1])  ] )
+
+            # calculate the wrist and shoulder angles            
+            left_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), left_wrist ) # raw dot product vector angle
+            right_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), right_wrist)  # raw dot product vector angle
+                        
+            # print (left_arm_angle, right_arm_angle)  # DEBUG
+            # print (self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) )  # mapped result #DEBUG
+
+            # save raw dotproduct angle and time in a log 
+            now = int(time.time_ns() / 1000000)
+            self.arms_hlog.append([ now, self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) ])
+            # print (self.arms_hlog[-1])
+            # self.updateLastMaxHeight()
+            break   # make this only for the first pose (single user)
+
+
+    # Updates the last value 
+    def updateLastMaxHeight(self):
+        UPDATE_LENGHT = 1000  # 1 sec
+        
+        N = len(self.arms_hlog)
+        for indx in range(N,0,-1):
+            pass
+            
+
+
     # calculates the angle between two given vectors
     def calcVectorAngle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -211,6 +374,19 @@ class ArmAngleLog:
         degs = (180.0/math.pi) * angle
 
         return degs
+
+
+    # calculates the angle between two given vectors
+    # returns the raw results from the dot product, which is always between -1 to 1
+    def rawVectorAngle(self, vector_1, vector_2):
+        unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+        unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+        dot_product = np.dot(unit_vector_1, unit_vector_2)
+
+        return dot_product
+
+    def map_range(self, x, in_min, in_max, out_min, out_max):
+        return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
     # Calculates the cosine similarity between two given vectors
     def calcCosineSim(self, vector_1, vector_2):
@@ -233,18 +409,4 @@ class ArmAngleLog:
 
             del self.armsLogs[:]   #clean logged wrist positions
 
-    # Joins all the CSV log files into a single file (Using Pandas)
-    def joinCsvLogs(self, force_log_file, midi_log_file , arms_log_file, full_log_file ):
-        # Open every CSV in a independent dataframe
-        force = pd.read_csv(force_log_file, index_col=None, header=0)
-        arms = pd.read_csv(arms_log_file, index_col=None, header=0)
-        midi = pd.read_csv(midi_log_file, index_col=None, header=0)
-        # Merge force and arms data frames
-        force_arms = pd.concat([force,arms])
-        force_arms = force_arms.sort_values('Time(epoch)')
-        # Merge force arms and midi dataframes
-        force_arms_midi =  pd.concat([force_arms, midi])
-        force_arms_midi = force_arms_midi.sort_values('Time(epoch)')
-        force_arms_midi = force_arms_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
-        force_arms_midi.to_csv(full_log_file, index=False)   # Save on CSV file
                     

@@ -25,7 +25,7 @@ class OPWristPos:
             left_norm_h = left_height / self.resY
             right_norm_h = right_height / self.resY
 
-            now = int(time.time() * 1000)
+            now = int(time.time_ns() / 1000000) 
             ret_pos.append( (now, left_norm_h, right_norm_h, left_height, right_height) )  # 0 max 1 min
         
         self.wristLogs.append(ret_pos)

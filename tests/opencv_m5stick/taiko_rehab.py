@@ -99,12 +99,12 @@ def main():
     cam = camThread(CAM_OPCV_ID, 200)  # Init camera thread object
     cam.start()   # Start camera capture
 
-    # Init Joystick       
+    # Init Joystick class control
     joy = Joystick()
     joyTime = Array('q', [0] * joy.jCount)  # Sync object to save the joystick number and timming
     joy.start(joyTime)   # Init thread and start joystick event catch thread
 
-    # Init M5 acc serial thread
+    # Init M5 accelerometer serial thread
     joyForces = Array('f', [0] * joy.jCount)  # object to save the joysitck hit force
     m5 = []
     for i in range(0,joy.jCount):
@@ -122,7 +122,7 @@ def main():
     hit_ok = False  # To print the hit miss or fail on the screen
     try:
         while True:
-            start = time.time()
+            # start = time.time()  #DEBUG
             img = cam.get_video_frame()  #rgb right camera
             if img is None:
                 continue

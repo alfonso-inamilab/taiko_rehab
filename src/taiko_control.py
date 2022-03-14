@@ -83,7 +83,7 @@ class taikoControl():
 
             self.timestamp = Value('i', 0)
             self.start_event = Event()
-            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event, video_scale=0.5)  # video display 
+            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event)  # video display 
 
             # Init Joystick       
             self.joy = Joystick()
@@ -152,6 +152,8 @@ class taikoControl():
         self.opWrapper.start()
         self.datum = op.Datum()
 
+        window_name = "Taiko Rehab"
+        cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
 
         # start = 0
         # img = None 
@@ -207,7 +209,7 @@ class taikoControl():
             # else:
             #     cv2.imshow("Taiko Rehab", img)  # open pose img
 
-            cv2.imshow("Taiko Rehab", img)  # open pose img
+            cv2.imshow(window_name, img)  # open pose img
             key = cv2.waitKey(1)
             if key == 27  or key & 0xFF == ord('q') or key & 0xFF == ord('Q'):   # ESC or q to exit
                 break

@@ -73,7 +73,7 @@ class taikoControl():
         self.timestamp = None
         
 
-    def initThreads(self,  csv_path, video_path, midi_path):
+    def initThreads(self,  csv_path, video_path, midi_path, start_frame):
         # try:
             joyOK = True;  m5OK = True;   # Variables to check it the sensors, joystick and camera are connected
 
@@ -84,7 +84,7 @@ class taikoControl():
 
             self.start_event = Event()
             self.timestamp = Value('l', 0)
-            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event, video_scale=1.0 )  # video display 
+            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event, start_frame, video_scale=1.0 )  # video display 
             
 
             # Init Joystick       

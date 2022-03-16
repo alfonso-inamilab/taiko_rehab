@@ -42,7 +42,7 @@ from include.m5stick_serial_acc import M5SerialCom
 # CLASS TO DISPLAY SIMULTANEOUS VIDEO DISPLAY 
 from include.video_display import VideoDisplay
 # CLASS TO PRE-PROCESS THE INSTRUCTORS VIDEO AND CREATE A CSV WITH THE POSES
-# from include.video_process import VideoProcess
+from include.video_process import VideoProcess
 
 #This class controls the main program exceuction 
 class taikoControl():
@@ -70,6 +70,7 @@ class taikoControl():
         self.hit_ok = None  # To print the hit miss or fail on the screen
         self.first = None # To detect the first process cycle
         self.start_event = None   # Event to syn the video and midi players
+        self.timestamp = None
         
 
     def initThreads(self,  csv_path, video_path, midi_path):
@@ -81,9 +82,10 @@ class taikoControl():
             self.cam = camThread(CAM_OPCV_ID, 200)  # Init camera thread object
             self.cam.start()   # Start camera capture
 
-            self.timestamp = Value('i', 0)
             self.start_event = Event()
-            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event)  # video display 
+            self.timestamp = Value('l', 0)
+            self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event, video_scale=1.0 )  # video display 
+            
 
             # Init Joystick       
             self.joy = Joystick()
@@ -102,7 +104,7 @@ class taikoControl():
             m5OK = self.m5.m5Check()   # true if m5 is connected to the PC
 
             # Init MIDI control process
-            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', filename=midi_path, logfile=MIDI_LOG_NAME, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log)
+            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', filename=midi_path, logfile=MIDI_LOG_NAME, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log, timestamp=self.timestamp)
 
             # Logs the users' arms positions
             self.armsPos = ArmAngleLog(self.cam.resX, self.cam.resY, csv_path, log_file=ARMS_LOG_NAME)

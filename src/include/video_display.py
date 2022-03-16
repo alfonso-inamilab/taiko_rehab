@@ -1,80 +1,83 @@
-import vlc
+import time
+import numpy as np
+import cv2 as cv
+import wx
+import wx.media
 
+
+from threading import Thread
 from multiprocessing import Process
 from multiprocessing import Event, Value
+from ffpyplayer.player import MediaPlayer
+
+# WX Frame to display the video. It also creates an external thread to updtea the video timestamp (ms)
+class VideoPanel(wx.Frame):
+    def __init__(self, videopath, start_event, timestamp):
+        wx.Frame.__init__(self, None, size=wx.Size(1024,720))
+        self.testMedia = wx.media.MediaCtrl(self, style=wx.SIMPLE_BORDER,szBackend=wx.media.MEDIABACKEND_WMP10)
+        self.media = videopath
+        self.testMedia.Bind(wx.media.EVT_MEDIA_LOADED, self.play)
+        self.testMedia.Bind(wx.media.EVT_MEDIA_FINISHED, self.quit)
+        if self.testMedia.Load(self.media):
+            pass
+        else:
+            print("Media not found")
+            self.quit(None)
+
+        self.stop_flag = Value('b', False)
+        self.th = Thread(target=self.getTime, args=(start_event, timestamp, self.stop_flag ))
+        self.th.daemon = True
+        self.th.start()
 
 
-# Starts the player and syncs the midi player with a synched flag
-def videoPlayLoop(videopath, start_event, video_play, timestamp):
+    def play(self, event):
+        self.stop_flag.value = False
+        self.testMedia.Play()
 
-        player = None
-        player = vlc.MediaPlayer(videopath)
-        # player.video_set_scale(video_scale)    
+    def quit(self, event):
+        self.stop_flag.value = True
+        self.th.join()
+        self.Destroy()
 
-        player.play()
-        print ("player ON")
+    # Thread looping function to update the video timestamp
+    def getTime(self, start_event, timestamp, stop_flag):
+        INITIAL_FRAME = 193
+        fps = 30.21
+        FIRST_HIT_TIME = int((INITIAL_FRAME / fps) * 1000)
         
-        while (video_play.value == True):
-            # timestamp.value = player.get_time()
-            if player.get_time() > 0:
+        first_hit = True
+        while (stop_flag.value == False):
+            timestamp.value = self.testMedia.Tell()
+            
+            if (timestamp.value > FIRST_HIT_TIME and first_hit == True):
                 start_event.set()
-                # return
-        return
+                first_hit = False
 
+# External process to create the WXFrame display the video and update the video timestamp
+def videoPlayLoop(videopath, start_event, timestamp ):
+    app = wx.App()
+    Frame = VideoPanel(videopath, start_event, timestamp)
+    Frame.Show()
+    app.MainLoop()
+
+
+# Class that encapsulates the VideoDisplay process and control
 class VideoDisplay():
 
-    def __init__(self, videopath, timestamp, deque_size, start_event, video_scale=1.0 ):
-        self.fps = 0
-        self.length = 0
+    def __init__(self, videopath, timestamp, deque_size, start_event, video_scale=1.0):
         
-
-        self.video_play = Value('b', False)
-        self.timestamp = Value('l', False)
-        self.videoPlayThread = Process(name="p_midi", target=videoPlayLoop, args=( videopath, start_event, self.video_play, self.timestamp )  ) 
-        self.videoPlayThread.daemon = True
-        # self.startThread = Thread(target=self.startingLoop, args=(start_event,))
-        # self.startThread.daemon = True
+        self.length = 0
+        self.videoPlayProc = Process(name="p_midi", target=videoPlayLoop, args=( videopath, start_event, timestamp )  ) 
+        self.videoPlayProc.daemon = True
 
     # Starts the video process
     def start(self):
-        # Start background frame grabbing   
-        self.video_play.value = True
-        self.videoPlayThread.start()        
+        # Start background frame grabbing  
+        self.videoPlayProc.start()        
 
     # Stops the video process
     def stop(self):
-        self.video_play.value = False
-        # self.videoPlayThread.stop()
+        self.videoPlayProc.terminate()
 
-    # def getHMSTime(self):
-    #     millis = self.get_timestamp()
-
-    #     millis = int(millis)
-    #     seconds=(millis/1000)%60
-    #     frac = int ( (seconds % 1) * 1000) 
-    #     seconds = int(seconds)
-    #     minutes=(millis/(1000*60))%60
-    #     minutes = int(minutes)
-    #     hours=(millis/(1000*60*60))%24
-
-    #     return ("%02d:%02d:%02d.%03d" % (hours, minutes, seconds, frac))
-
-    def get_timestamp(self):
-        if self.player is None :
-            return 0
-        else:
-            return self.player.get_time() 
-
-    def get_length(self):
-        if self.player is None:
-            return 0
-        else:
-            return self.player.get_length()
-
-    def get_fps(self):
-        if self.player is None:
-            return 0
-        else:
-            return self.player.get_fps()
-            
+    
                 

@@ -18,30 +18,53 @@ from include.globals import JOY_BUFF_SIZE
 tnote = Value('q', 0)  # note's PC timming
 knote = Value('q', 0)  # note's key (for joystick midi feedback play)
 tnotes_log = Array('l', [0] * JOY_BUFF_SIZE)  # Save notes timming fo the log 
-# This loop only plays the MIDI file. Only gives back the note time and event ocurrance flag
-# THIS RUNS IN A SEPARATE PROCESS, SO ONLY THE PARAMETERS CAN BE SHARED TO THE REST OF THE PROGRAM
-def playMidi( portname, filename, tnote, knote, tnotes_log, start_event):
+# This loop only plays the MIDI file. RUNS USING THE FPS FROM THE VIDEO FOR GOOD SYNC
+def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
     output = mido.open_output(portname)
-    midifile = MidiFile(filename)
-
-    # sleep until the video starts playing
-    start_event.wait()
-    print ("midi started")
-
     event_counter = 0
-    for msg in midifile.play():  # This function gets stuck here, until a new midi note ocurrs in mido
-        if MIDI_PLAY_MIDIFILE_NOTES == True:
-            output.send(msg)
 
-        if msg.type == 'note_on' and msg.velocity > 0:
-            now = int(time.time_ns() / 1000000)
-            tnote.value = now
-            knote.value = msg.note
+    start_time = vt.value
+    input_time = 0
+    first_note = False
+
+    for msg in MidiFile(filename):
+        input_time = int(msg.time*1000)
+
+        playback_time = vt.value - start_time
+        duration_to_next_event = input_time - playback_time
+
+        if duration_to_next_event > 0:
+            time.sleep(duration_to_next_event/1000.0)
+
+        if msg.is_meta:
+            continue
+        else:
+            if (msg.type == 'note_on') and not first_note:
+                start_event.wait()
+                start_time = vt.value
+                first_note = True
+
+            if MIDI_PLAY_MIDIFILE_NOTES == True:
+                output.send(msg)
             
-            #save note data into the log 
-            tnotes_log[event_counter] = now
-            event_counter = event_counter + 1
+            if msg.type == 'note_on' and msg.velocity > 0:
+                now = int(time.time_ns() / 1000000) 
+                tnote.value = now
+                knote.value = msg.note
+            
+                #save note data into the log 
+                tnotes_log[event_counter] = now
+                event_counter = event_counter + 1
 
+
+        if msg.is_meta:
+            continue
+        else:
+            if msg.type == 'note_on' and msg.velocity > 0:
+                if first_note == True:
+                    start_event.wait()
+                    first_note = False
+                
     output.reset()
     return
 
@@ -112,21 +135,19 @@ class MidiControl:
     # portname - Midi portname
     # filename - Midi filename to play
     # joyTime - multiprocessing Value object to track Joystick time events
-    def __init__(self, portname, filename, logfile, joyTimeBuf, jBufIndx, start_event, joy_log):    
+    def __init__(self, portname, filename, logfile, joyTimeBuf, jBufIndx, start_event, joy_log, timestamp):    
 
         print (mido.get_output_names())   # prints midi available midi outputs
         self.log_file = logfile
         self.joy_log = joy_log
         
-        self.p_midi = Process(name="p_midi", target=playMidi, args=(portname, filename, tnote, knote, tnotes_log, start_event  ))
-        # self.p_midi = Process(name="p_midi", target=playMidi, args=(portname, filename,  ))
+        self.p_midi = Process(name="p_midi", target=playMidi, args=(portname, filename, tnote, knote, tnotes_log, start_event, timestamp  ))
         self.p_input = Process(name="p_input", target=userInput, args=(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, event, hit_notes_log, hit_joy_log ))
         
     # Starts the muliprocess
     def start(self):
         self.p_midi.start()
         self.p_input.start()
-        print ("midi empezo")
 
     # Kills the process
     def stop(self):
@@ -167,26 +188,6 @@ class MidiControl:
     #     with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
 
     #         wr.writerow(['Joystick_Press(ms)', 'Note_Time(epoch)', 'Reaction_Time(nearest_note)', 'Hit_or_Miss', ])
-
-            
-
-            
-                
-                      
-
-
-            
-
-            
-
-
-
-
-              
-
-
-            
-
 
         # with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
         #     wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)

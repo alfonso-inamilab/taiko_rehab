@@ -19,7 +19,8 @@ class M5SerialCom:
         self.jIndex = joyIndex
 
         self.stopFlag = Value('b', False)
-        self.serialProcess = Process(target=self.serialLoop, args=(self.stopFlag, joyForces))  
+        self.serialProcess = Process(target=self.serialLoop, args=(self.stopFlag, joyForces)) 
+        self.serialProcess.daemon = True 
         self.accLogBuff = []     # logged into disk when the tread is stopped
         self.LAST_MAX_LEN = 3
         self.JOYSTICK_MASS = 0.1   # 100 gr mass in kilograms to calculate Force from Acceleration

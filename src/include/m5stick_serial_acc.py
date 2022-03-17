@@ -60,15 +60,12 @@ class M5SerialCom:
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-            wr.writerow(['Index', 'Time_Lapse(ms)', 'Time(epoch)', 'Z_Axis_Acceleration_(ms/s^2)'])
-            first_event = 0
+            wr.writerow(['Index', 'Time(epoch)', 'Z_Axis_Acceleration_(ms/s^2)'])
             for i, line in enumerate(self.accLogBuff):
                 acc_s = line[1].decode('utf-8')
                 acc_z = acc_s.split(',')[1].split(',')[0]
                 # f_y = float(acc_y) * self.JOYSTICK_MASS
-                if i == 0:
-                    first_event = line[0]
-                wr.writerow( [i, line[0]-first_event, line[0], acc_z] )
+                wr.writerow( [i, line[0], acc_z] )
 
 
     def getLastAccData(self):

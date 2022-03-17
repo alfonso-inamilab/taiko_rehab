@@ -82,7 +82,8 @@ class VideoDisplay():
 
     # Stops the video process
     def stop(self):
-        self.videoPlayProc.terminate()
+        if self.videoPlayProc.is_alive():
+            self.videoPlayProc.terminate()
 
     
                 

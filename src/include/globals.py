@@ -5,10 +5,6 @@ CAM_OPCV_ID = 0 # Open CV camera ID
 MAX_TXT_FRAMES = 5 # Number of frames the text wrist will be in the screen 
 
 # PROGRAM GLOBAL VARIABLES 
-FULL_LOG_FILE = "full_log.csv" 
-FORCE_LOG_NAME = "force_log_.csv" 
-ARMS_LOG_NAME = "arms_log.csv" 
-MIDI_LOG_NAME = "midi_log.csv" 
 DRAW_SENSEI_ARMS = False 
 DRAW_HITS = True 
 

@@ -12,10 +12,6 @@ from include.globals import OP_PY_DEMO_PATH
 from include.globals import OP_MODELS_PATH
 from include.globals import CAM_OPCV_ID
 from include.globals import MAX_TXT_FRAMES
-from include.globals import FULL_LOG_FILE
-from include.globals import FORCE_LOG_NAME
-from include.globals import ARMS_LOG_NAME
-from include.globals import MIDI_LOG_NAME
 from include.globals import MIDI_MAX_PAST
 from include.globals import MIDI_MAX_FUTURE
 from include.globals import MIDI_PLAY_GOOD_HITS
@@ -45,10 +41,6 @@ class taikoGUI():
         self.txt2 = None
         self.txt4 = None
         self.txt5 = None
-        self.txt6 = None
-        self.txt7 = None
-        self.txt8 = None
-        self.txt9 = None
         self.txt11 = None
         self.txt12 = None
         self.midi_play_file_notes = None
@@ -74,10 +66,6 @@ class taikoGUI():
             f.write("MAX_TXT_FRAMES = " + self.txt4.get()  + " # Number of frames the text wrist will be in the screen \n")
 
             f.write("\n# PROGRAM GLOBAL VARIABLES \n") 
-            f.write("FULL_LOG_FILE = \"" + self.txt6.get().replace('\\','\\\\')  + "\" \n")
-            f.write("FORCE_LOG_NAME = \"" + self.txt7.get().replace('\\','\\\\')  + "\" \n")
-            f.write("ARMS_LOG_NAME = \"" + self.txt8.get().replace('\\','\\\\')  + "\" \n")
-            f.write("MIDI_LOG_NAME = \"" + self.txt9.get().replace('\\','\\\\')  + "\" \n")
             f.write("DRAW_SENSEI_ARMS = " + str(self.draw_sensei_arms.get())  + " \n")
             f.write("DRAW_HITS = " + str(self.draw_hits.get())  + " \n")
 
@@ -273,33 +261,6 @@ class taikoGUI():
         self.combo3['values'] = (0,1,2,3)
         self.combo3.current(CAM_OPCV_ID)
         self.combo3.grid(column=1, row=4, sticky="W")
-
-        sep2 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=7, columnspan=5, ipadx=300)
-        lsep2 = ttk.Label(tab2, text="Data log options").grid(column=3, row=7)
-
-        lbl6 = ttk.Label(tab2, text= 'Full log CSV file name')
-        lbl6.grid(column=0, row=8)
-        self.txt6 = ttk.Entry(tab2 ,width=50)
-        self.txt6.insert(tk.END, FULL_LOG_FILE)
-        self.txt6.grid(column=1, row=8, sticky="W")
-
-        lbl7 = ttk.Label(tab2, text= 'Force log CSV file name')
-        lbl7.grid(column=0, row=9)
-        self.txt7 = ttk.Entry(tab2 ,width=50)
-        self.txt7.insert(tk.END, FORCE_LOG_NAME)
-        self.txt7.grid(column=1, row=9, sticky="W")
-
-        lbl8 = ttk.Label(tab2, text= 'Arms log CSV file name')
-        lbl8.grid(column=0, row=10)
-        self.txt8 = ttk.Entry(tab2 ,width=50)
-        self.txt8.insert(tk.END, ARMS_LOG_NAME)
-        self.txt8.grid(column=1, row=10, sticky="W")
-
-        lbl9 = ttk.Label(tab2, text= 'MIDI time log CSV file name')
-        lbl9.grid(column=0, row=11)
-        self.txt9 = ttk.Entry(tab2 ,width=50)
-        self.txt9.insert(tk.END, MIDI_LOG_NAME)
-        self.txt9.grid(column=1, row=11, sticky="W")
 
         sep3 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=12, columnspan=5, ipadx=300)
         lsep3 = ttk.Label(tab2, text="MIDI Options").grid(column=3, row=12)

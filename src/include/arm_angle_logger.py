@@ -1,5 +1,6 @@
 import time
 import cv2
+import os
 import math
 import csv
 import pandas as pd
@@ -7,12 +8,14 @@ import numpy as np
 from array import array
 from threading import Thread
 
+
+
 # Class that calculates the angle between the forearm and arm 
 # and saves all the data in a log
 class ArmAngleLog:
 
-    def __init__(self, resX, resY, video_angles_file, log_file):
-        self.log_file = log_file
+    def __init__(self, resX, resY, video_angles_file, log_path):
+        self.log_file = log_path + os.path.sep + 'arms_log.csv'
         self.video_angles = None
         self.v_len = 0
         self.video_angles = self.initVideoArmPoses(video_angles_file)
@@ -311,7 +314,7 @@ class ArmAngleLog:
             right_arm_angle = self.calcVectorAngle(self.user_arms_pos[3], self.user_arms_pos[5])  # right_arm and right_forearm
 
             # Calculate the angular velocity
-            now_sec = int(time.time_ns() / 1000000)
+            now_sec = time.time_ns() / 1000000000   # time in SECONDS (for velocity)
             dt = now_sec - self.prev_time 
             left_sh_vel  = (self.prev_arms_angle[0] - left_sh_angle) / dt   # left shoulder vel
             right_sh_vel = (self.prev_arms_angle[1] - right_sh_angle) / dt   # right shoulder vel
@@ -324,8 +327,8 @@ class ArmAngleLog:
             self.prev_arms_angle[2] = left_arm_angle; self.prev_arms_angle[3] = right_arm_angle; 
             self.prev_time = now_sec
 
-            now = int(time.time_ns() / 1000000)
-            user_arms.append( (now, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
+            now = int(time.time_ns() / 1000000)  # log time in ms
+            user_arms.append( (now, left_sh_angle, right_sh_angle, left_arm_angle, right_arm_angle, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
 
         self.armsLogs.append(user_arms)
@@ -363,8 +366,6 @@ class ArmAngleLog:
         for indx in range(N,0,-1):
             pass
             
-
-
     # calculates the angle between two given vectors
     def calcVectorAngle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -400,13 +401,9 @@ class ArmAngleLog:
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Left_Sh_Vel', 'Right_Sh_Vel', 'Left_Arm_Vel', 'Right_Arm_Vel'])
-            first_event = 0
+            wr.writerow(['Index', 'Time(epoch ms)', 'Left_Sh_Angle(deg)', 'Right_Sh_Angle(deg)', 'Left_Arm_Angle(deg)', 'Right_Arm_Angle(deg)', 'Left_Sh_Vel(deg/s)', 'Right_Sh_Vel(deg/s)', 'Left_Arm_Vel(deg/s)', 'Right_Arm_Vel(deg/s)'])
             for i, line in enumerate(self.armsLogs):
-                if i ==0:
-                    first_event = line[0][0]
-                wr.writerow(['0', line[0][0]-first_event, line[0][0], line[0][1], line[0][2], line[0][3], line[0][4] ])
+                wr.writerow([i, line[0][0], line[0][1], line[0][2], line[0][3], line[0][4], line[0][5], line[0][6], line[0][7], line[0][8] ])
 
-            del self.armsLogs[:]   #clean logged wrist positions
 
                     

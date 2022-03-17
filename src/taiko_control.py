@@ -3,15 +3,13 @@
 # TODO Implement taiko joystick wcontrols
 # TODO MIDI audio synthesizer 
 import sys
-import vlc
 import cv2
 import os
 import time
 import math
 from sys import platform
-import argparse
+from datetime import datetime
 import pygame
-import ctypes
 import numpy as np
 from multiprocessing import Array, Value, Event
 
@@ -20,10 +18,6 @@ from include.globals import OP_PY_DEMO_PATH
 from include.globals import OP_MODELS_PATH
 from include.globals import CAM_OPCV_ID
 from include.globals import MAX_TXT_FRAMES
-from include.globals import FULL_LOG_FILE
-from include.globals import ARMS_LOG_NAME
-from include.globals import FORCE_LOG_NAME
-from include.globals import MIDI_LOG_NAME
 from include.globals import DRAW_SENSEI_ARMS
 from include.globals import DRAW_HITS
 from include.globals import JOY_BUFF_SIZE
@@ -71,11 +65,45 @@ class taikoControl():
         self.first = None # To detect the first process cycle
         self.start_event = None   # Event to syn the video and midi players
         self.timestamp = None
-        
+    
+    # sets the default path and gets the number of the lats pic 
+    def setRootPath(self, path=""):
+        if path == "":
+            self.rootPath = os.getcwd() + os.path.sep + "captures" # default is current dictory + captures
+            if os.path.isdir(self.rootPath) == False:
+                os.mkdir(self.rootPath) #create folder if do not exists
+        else:
+            self.rootPath = rootPath
+
+    # create a new folder path, to save the log files
+    def getNewFolder(self, prefix="taiko_log_"):
+        # Get root path directory 
+        rootPath = os.getcwd() + os.path.sep + "logs" 
+        if os.path.isdir(rootPath) == False:
+            os.mkdir(rootPath) #create folder if do not exists
+
+        #get date and time
+        now = datetime.now()
+        today = now.strftime("%Y%m%d")
+        hour = now.strftime("%H%M")
+
+        newFolder = rootPath + os.path.sep + prefix + today + "_" + hour + "_"
+        counter = 1
+        retVal = ""
+        while True:
+            retVal = newFolder + format(counter, '02d') 
+            if os.path.isdir(retVal) == False:
+                os.mkdir(retVal)
+                break
+            else:
+                counter = counter + 1
+        return retVal 
+
 
     def initThreads(self,  csv_path, video_path, midi_path, start_frame):
         # try:
             joyOK = True;  m5OK = True;   # Variables to check it the sensors, joystick and camera are connected
+            log_path = self.getNewFolder()
 
             # Init camera thread
             # cap = cv2.VideoCapture(CAM_OPCV_ID, cv2.CAP_DSHOW)
@@ -83,15 +111,14 @@ class taikoControl():
             self.cam.start()   # Start camera capture
 
             self.start_event = Event()
-            self.timestamp = Value('l', 0)
+            self.timestamp = Value('q', 0)
             self.video = VideoDisplay( video_path, self.timestamp, 200, self.start_event, start_frame, video_scale=1.0 )  # video display 
             
-
             # Init Joystick       
             self.joy = Joystick()
             self.joyTimeBuf = Array('q', [0] * JOY_BUFF_SIZE)  # Buf that saves the last joystick events (10 items is enough)
             self.jBufIndx = Value('q', 0)  # index value for the joystick entry buffer
-            self.joy_log = Array ('l', [0] * JOY_BUFF_SIZE)
+            self.joy_log = Array ('q', [0] * JOY_BUFF_SIZE)
             self.joy.start('Microsoft GS Wavetable Synth 0', self.joyTimeBuf, self.jBufIndx, self.joy_log)   # Init thread and start joystick event catch thread
             joyOK = self.joy.joystickCheck()   # true if the joystick is connected to the PC
 
@@ -99,15 +126,15 @@ class taikoControl():
             self.joyForces = Array('f', [0] * self.joy.jCount)  # object to save the joysitck hit force
             
             # M5 stick control class init
-            self.m5 = M5SerialCom( bauds=115200, joyForces=self.joyForces, joyIndex = 0, log_file=FORCE_LOG_NAME )
+            self.m5 = M5SerialCom( bauds=115200, joyForces=self.joyForces, joyIndex = 0, log_path=log_path)
             self.m5.start()
             m5OK = self.m5.m5Check()   # true if m5 is connected to the PC
 
             # Init MIDI control process
-            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', filename=midi_path, logfile=MIDI_LOG_NAME, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log, timestamp=self.timestamp)
+            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', log_path=log_path, filename=midi_path, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log, timestamp=self.timestamp)
 
             # Logs the users' arms positions
-            self.armsPos = ArmAngleLog(self.cam.resX, self.cam.resY, csv_path, log_file=ARMS_LOG_NAME)
+            self.armsPos = ArmAngleLog(self.cam.resX, self.cam.resY, csv_path, log_path=log_path)
 
             self.txtFrames = MAX_TXT_FRAMES  # Number of cycles hit feedback appears on the screen
             self.hit_vel = 0   # To print the velocity on the screen
@@ -137,10 +164,6 @@ class taikoControl():
             print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
             raise e
 
-        # Flags
-        parser = argparse.ArgumentParser()
-        # parser.add_argument("--image_path", default="../../../examples/media/COCO_val2014_000000000192.jpg", help="Process an image. Read all standard formats (jpg, png, bmp, etc.).")
-        args = parser.parse_known_args()
 
         # Custom Params (refer to include/openpose/flags.hpp for more parameters)
         # Add other parameters for OpenPose here

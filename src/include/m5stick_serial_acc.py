@@ -1,19 +1,20 @@
 import serial
 import time
+import os
 import csv
 import serial.tools.list_ports
 
 from multiprocessing import Process, Value
 
 class M5SerialCom:
-    def __init__(self, bauds, joyForces, joyIndex, log_file):
+    def __init__(self, bauds, joyForces, joyIndex, log_path):
         # Init serial
         self.baudrate = bauds
         self.port = self.getSerialPort()
         if self.port == None:  # If nothing is found use COM5 as a default port (to avoid program crash)
             self.port = 'COM5' 
 
-        self.log_file = log_file
+        self.log_file = log_path + os.path.sep + 'drum_vibration_log.csv'
         self.ser = None
         self.lastMax = 0.0
         self.jIndex = joyIndex
@@ -59,18 +60,18 @@ class M5SerialCom:
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-            wr.writerow(['User_ID', 'Time_Lapse(ms)', 'Time(epoch)', 'Z_Axis_Accelration_(ms/s^2)', 'Force(N)'])
+            wr.writerow(['Index', 'Time_Lapse(ms)', 'Time(epoch)', 'Z_Axis_Acceleration_(ms/s^2)'])
             first_event = 0
             for i, line in enumerate(self.accLogBuff):
                 acc_s = line[1].decode('utf-8')
-                acc_y = acc_s.split(',')[1].split(',')[0]
-                f_y = float(acc_y) * self.JOYSTICK_MASS
+                acc_z = acc_s.split(',')[1].split(',')[0]
+                # f_y = float(acc_y) * self.JOYSTICK_MASS
                 if i == 0:
                     first_event = line[0]
-                wr.writerow( [0, line[0]-first_event, line[0], acc_y, f_y] )
+                wr.writerow( [i, line[0]-first_event, line[0], acc_z] )
 
 
-    def getLastForce(self):
+    def getLastAccData(self):
         acc_s = self.accLogBuff[-1][1].decode('utf-8')
         return float(acc_s.split(',')[1].split(',')[0])
 
@@ -94,7 +95,7 @@ class M5SerialCom:
             self.accLogBuff.append( (now, readLine)  )
             fMax = fMax + 1
             if fMax == self.LAST_MAX_LEN:
-                joyForces[self.jIndex] = self.getLastForce()
+                joyForces[self.jIndex] = self.getLastAccData()
                 fMax = 0
         self.logOnDisk()
 

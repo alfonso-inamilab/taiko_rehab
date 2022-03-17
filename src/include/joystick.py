@@ -59,7 +59,7 @@ class Joystick:
         output.send(pc)
 
         self.joyPressed = False
-        jBufIndx.value = JOY_BUFF_SIZE -1
+        jBufIndx.value = 0
         event_counter = 0
         while self.run:
             for event in pygame.event.get(): # User did something.
@@ -92,4 +92,6 @@ class Joystick:
                             self.joyPressed = False
                             # print("Joystick button released.")   # DEBUG
 
+        print ("joystick thread stop...")
         return 
+        

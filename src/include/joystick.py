@@ -13,18 +13,18 @@ class Joystick:
         # Pygame init and Joystick init 
         pygame.init()
         pygame.joystick.init()
-        self.jCount = pygame.joystick.get_count()
-        self.joystick = pygame.joystick.Joystick(0)
+        self.jCount = 0
+        self.joystick = None
 
         # Init class variables
         self.joyPressed = False
         self.run = False
 
     # starts the thread 
-    def start(self, midi_port, joyTimeBuf, jBufIndx, joy_log):
+    def start(self, midi_port, joyTimeBuf, jBufIndx, joy_log, knote, armh):
 
         # Init Threading
-        self.joyThread = Thread(target=self.joystickLoop, args=(midi_port, joyTimeBuf,jBufIndx, joy_log))
+        self.joyThread = Thread(target=self.joystickLoop, args=(midi_port, joyTimeBuf,jBufIndx, joy_log, knote, armh))
         self.joyThread.daemon = True
 
         self.run = True
@@ -46,16 +46,22 @@ class Joystick:
     def isPressed(self):
         return self.joyPressed
 
-    def joystickCheck(self):
+    def joystickConnect(self, joy_num):
+        self.jCount = pygame.joystick.get_count()
+        if self.jCount <=0:
+            print("ERROR: No Joystick was found.")
+            return False
+
+        self.joystick = pygame.joystick.Joystick(joy_num)
         if self.jCount <=0:
             return False
         else:
             return True
 
-    def joystickLoop(self, midi_port, joyTimeBuf, jBufIndx, joy_log):
+    def joystickLoop(self, midi_port, joyTimeBuf, jBufIndx, joy_log, knote, armh):
         output = mido.open_output(midi_port)
  
-        pc = mido.Message('program_change', channel=8, program=116, time=0 )   # setup of taiko sound
+        pc = mido.Message('program_change', channel=7, program=116, time=0 )   # setup FOR TAIKO sound
         output.send(pc)
 
         self.joyPressed = False
@@ -78,7 +84,7 @@ class Joystick:
                         self.joyPressed = True
 
                         if MIDI_PLAY_ALL_HITS:
-                            pnote = mido.Message('note_on', channel=8, note=64, velocity=127, time=0)
+                            pnote = mido.Message('note_on', channel=7, note=knote.value, velocity=armh.value, time=0)
                             output.send(pnote)
 
                         # print ("press", joyTime)

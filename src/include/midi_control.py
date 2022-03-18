@@ -16,7 +16,6 @@ from include.globals import JOY_BUFF_SIZE
 
 # Variables shared between different process
 tnote = Value('q', 0)  # note's PC timming
-knote = Value('q', 0)  # note's key (for joystick midi feedback play)
 tnotes_log = Array('q', [0] * JOY_BUFF_SIZE)  # Save notes timming fo the log 
 # This loop only plays the MIDI file. RUNS USING THE FPS FROM THE VIDEO FOR GOOD SYNC
 def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
@@ -76,7 +75,7 @@ hit_notes_log = Array('q', [0] * JOY_BUFF_SIZE)   # Saves the time of the good h
 hit_joy_log = Array('q', [0] * JOY_BUFF_SIZE)   # Saves the time of the good hit note events (all the other are misses)  
 # Checks for user input, registers good and bad hits and save the logged data into disk (on finish)
 # THIS RUNS IN A SEPARATE PROCESS, SO ONLY THE PARAMETERS CAN BE SHARED TO THE REST OF THE PROGRAM
-def userInput(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, event, hit_notes_log, hit_joy_log):
+def userInput(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, armh, event, hit_notes_log, hit_joy_log):
     output = mido.open_output(portname)
 
     pc = mido.Message('program_change', channel=8, program=116, time=0 )   # setup of taiko sound
@@ -110,7 +109,7 @@ def userInput(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, event, hit_note
 
                 # play MIDI note 
                 if MIDI_PLAY_GOOD_HITS:
-                    pnote = mido.Message('note_on', channel=8, note=knote.value, velocity=127, time=0)
+                    pnote = mido.Message('note_on', channel=8, note=knote.value, velocity=armh.value, time=0)
                     output.send(pnote)
 
                 # log hit event 
@@ -138,7 +137,7 @@ class MidiControl:
     # portname - Midi portname
     # filename - Midi filename to play
     # joyTime - multiprocessing Value object to track Joystick time events
-    def __init__(self, portname, log_path, filename, joyTimeBuf, jBufIndx, start_event, joy_log, timestamp):    
+    def __init__(self, portname, log_path, filename, joyTimeBuf, jBufIndx, start_event, joy_log, knote, armh, timestamp):    
 
         print (mido.get_output_names())   # prints midi available midi outputs
         self.log_path = log_path
@@ -146,7 +145,7 @@ class MidiControl:
         self.joy_log = joy_log
         
         self.p_midi = Process(name="p_midi", target=playMidi, args=(portname, filename, tnote, knote, tnotes_log, start_event, timestamp  ))
-        self.p_input = Process(name="p_input", target=userInput, args=(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, event, hit_notes_log, hit_joy_log ))
+        self.p_input = Process(name="p_input", target=userInput, args=(portname, joyTimeBuf, jBufIndx, hit, tnote, knote, armh, event, hit_notes_log, hit_joy_log ))
         self.p_midi.daemon = True   
         self.p_input.daemon = True
         

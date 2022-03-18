@@ -12,7 +12,7 @@ from ffpyplayer.player import MediaPlayer
 
 # WX Frame to display the video. It also creates an external thread to updtea the video timestamp (ms)
 class VideoPanel(wx.Frame):
-    def __init__(self, videopath, start_event, start_frame, timestamp):
+    def __init__(self, videopath, start_event, start_frame, fps, timestamp):
         wx.Frame.__init__(self, None, size=wx.Size(1024,720))
         self.testMedia = wx.media.MediaCtrl(self, style=wx.SIMPLE_BORDER,szBackend=wx.media.MEDIABACKEND_WMP10)
         self.testMedia.Bind(wx.media.EVT_MEDIA_LOADED, self.play)
@@ -24,8 +24,7 @@ class VideoPanel(wx.Frame):
             self.quit(None)
 
         self.stop_flag = Value('b', False)
-        self.fps = self.getVideoFps(videopath)
-        self.th = Thread(target=self.getTime, args=(start_event, start_frame, self.fps, timestamp, self.stop_flag ))
+        self.th = Thread(target=self.getTime, args=(start_event, start_frame, fps, timestamp, self.stop_flag ))
         self.th.daemon = True
         self.th.start()
 
@@ -38,11 +37,6 @@ class VideoPanel(wx.Frame):
         self.stop_flag.value = True
         self.th.join()
         self.Destroy()
-
-    # Uses Opencv to get the vidoe FPS
-    def getVideoFps(self, video_path):
-        video = cv.VideoCapture(video_path)
-        return float(video.get(cv.CAP_PROP_FPS))
 
 
     # Thread looping function to update the video timestamp
@@ -59,9 +53,9 @@ class VideoPanel(wx.Frame):
                 first_hit = False
 
 # External process to create the WXFrame display the video and update the video timestamp
-def videoPlayLoop(videopath, start_event, start_frame, timestamp ):
+def videoPlayLoop(videopath, start_event, start_frame, fps, timestamp ):
     app = wx.App()
-    Frame = VideoPanel(videopath, start_event, start_frame, timestamp)
+    Frame = VideoPanel(videopath, start_event, start_frame, fps, timestamp)
     Frame.Show()
     app.MainLoop()
 
@@ -70,9 +64,13 @@ def videoPlayLoop(videopath, start_event, start_frame, timestamp ):
 class VideoDisplay():
 
     def __init__(self, videopath, timestamp, deque_size, start_event, start_frame, video_scale=1.0):
-        
+        # Use Opencv to get the videO FPS
+        tmp_video = cv.VideoCapture(videopath)
+        self.fps = float(tmp_video.get(cv.CAP_PROP_FPS))
+        tmp_video.release()
+
         self.length = 0
-        self.videoPlayProc = Process(name="p_midi", target=videoPlayLoop, args=( videopath, start_event, start_frame, timestamp )  ) 
+        self.videoPlayProc = Process(name="p_midi", target=videoPlayLoop, args=( videopath, start_event, start_frame, self.fps, timestamp )  ) 
         self.videoPlayProc.daemon = True
 
     # Starts the video process
@@ -84,6 +82,11 @@ class VideoDisplay():
     def stop(self):
         if self.videoPlayProc.is_alive():
             self.videoPlayProc.terminate()
+
+    # Retruns the FPS obtained with OpenCV
+    def get_fps(self):
+        return self.fps
+
 
     
                 

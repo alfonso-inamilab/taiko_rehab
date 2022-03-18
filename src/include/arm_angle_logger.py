@@ -8,7 +8,8 @@ import numpy as np
 from array import array
 from threading import Thread
 
-
+from include.globals import MIDI_MIN_ARM_VOL
+from include.globals import MIDI_MAX_ARM_VOL
 
 # Class that calculates the angle between the forearm and arm 
 # and saves all the data in a log
@@ -29,6 +30,7 @@ class ArmAngleLog:
         self.video_angles_index = 0 # The search index of the instructor poses
         self.arms_hlog = []
 
+        self.max_armh = 0    # Saves the highest historical arm height
         self.user_arms_pos = [0.0, 0.0, 0.0, 0.0]   # current arm/shoulder vector positions
         self.prev_arms_angle = [0.0, 0.0, 0.0, 0.0]   # last cycle arms angular positions
 
@@ -92,6 +94,8 @@ class ArmAngleLog:
 
         # VER 3. raw Openpose data from JSON->CSV file
         frame = int( (fps/1000) * time )
+        if frame >= len(self.video_angles):
+            return None
         # left_foream = np.array( [self.video_angles[frame][7*3] - self.video_angles[frame][6*3]  ,  (self.resY - self.video_angles[frame][7*3+1]) - (self.resY - self.video_angles[frame][6*3+1]) ]  )   
         # left_arm = np.array( [ self.video_angles[frame][5*3]-self.video_angles[frame][6*3] ,    (self.resY - self.video_angles[frame][5*3+1]) - (self.resY - self.video_angles[frame][6*3+1])  ] )
 
@@ -101,6 +105,7 @@ class ArmAngleLog:
         # left_shoulder = np.array( [self.video_angles[frame][1*3]-self.video_angles[frame][5*3]  ,  (self.resY - self.video_angles[frame][1*3+1]) - (self.resY - self.video_angles[frame][5*3+1]) ] )   
         # right_shoulder = np.array( [ self.video_angles[frame][1*3]-self.video_angles[frame][2*3] ,    (self.resY - self.video_angles[frame][1*3+1]) - (self.resY - self.video_angles[frame][2*3+1])  ] )
 
+        
         left_foream = np.array( [self.video_angles[frame][7*3] - self.video_angles[frame][6*3]  ,  (self.video_angles[frame][7*3+1]) - (self.video_angles[frame][6*3+1]) ]  )   
         left_arm = np.array( [ self.video_angles[frame][5*3]-self.video_angles[frame][6*3] ,    (self.video_angles[frame][5*3+1]) - (self.video_angles[frame][6*3+1])  ] )
 
@@ -193,6 +198,8 @@ class ArmAngleLog:
 
         # "FAST" VERSION
         # print (fps, timestamp.value , int( (fps/1000) * timestamp.value ))
+        if matches is None:
+            return img
         frame = int( (fps/1000) * timestamp )     
      
         left_wrist = [self.video_angles[frame][7*3],  self.video_angles[frame][7*3+1] ]
@@ -327,6 +334,13 @@ class ArmAngleLog:
             self.prev_arms_angle[2] = left_arm_angle; self.prev_arms_angle[3] = right_arm_angle; 
             self.prev_time = now_sec
 
+            arms_height_angle = self.calcArmsHeight(pose)
+            # Log arms height and save the last maxiumum height value
+            self.updateLastMaxHeight(arms_height_angle)
+            
+            # TODO calculate height using Miyazaki sensei formula and add it to the logs
+
+
             now = int(time.time_ns() / 1000000)  # log time in ms
             user_arms.append( (now, left_sh_angle, right_sh_angle, left_arm_angle, right_arm_angle, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
@@ -334,37 +348,58 @@ class ArmAngleLog:
         self.armsLogs.append(user_arms)
 
     # Calculates the audio volume depeding on how high the user has his hands 
-    def logArmsHeight(self, poses):        
-        for i, pose in enumerate(poses): 
+    def calcArmsHeight(self, pose):        
+        left_wrist = np.array(  [ pose[5][0] - pose[7][0] , (pose[5][1]) - (pose[7][1])  ] )
+        right_wrist = np.array(  [ pose[2][0] - pose[4][0] , (pose[2][1]) - (pose[4][1] ) ] )
 
-            left_wrist = np.array(  [ pose[5][0] - pose[7][0] , (pose[5][1]) - (pose[7][1])  ] )
-            right_wrist = np.array(  [ pose[2][0] - pose[4][0] , (pose[2][1]) - (pose[4][1] ) ] )
+        left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (pose[1][1]) - (pose[5][1])  ] )
+        right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (pose[1][1]) - (pose[2][1])  ] )
 
-            left_shoulder = np.array(  [ pose[1][0] - pose[5][0] , (pose[1][1]) - (pose[5][1])  ] )
-            right_shoulder = np.array(  [ pose[1][0] - pose[2][0] , (pose[1][1]) - (pose[2][1])  ] )
+        # calculate the wrist and shoulder angles            
+        left_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), left_wrist ) # raw dot product vector angle
+        right_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), right_wrist)  # raw dot product vector angle
+                    
+        # print (left_arm_angle, right_arm_angle)  # DEBUG
+        # print (self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) )  # mapped result #DEBUG
 
-            # calculate the wrist and shoulder angles            
-            left_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), left_wrist ) # raw dot product vector angle
-            right_arm_angle = self.rawVectorAngle(np.array( [0.0 , 1.0] ), right_wrist)  # raw dot product vector angle
-                        
-            # print (left_arm_angle, right_arm_angle)  # DEBUG
-            # print (self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) )  # mapped result #DEBUG
+        # save raw dotproduct angle and time in a log 
+        # now = int(time.time_ns() / 1000000)
+        # self.arms_hlog.append([ now, self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) ])
+        # print (self.arms_hlog[-1])
+        # self.updateLastMaxHeight()
+        # break   # make this only for the first pose (single user)
 
-            # save raw dotproduct angle and time in a log 
-            now = int(time.time_ns() / 1000000)
-            self.arms_hlog.append([ now, self.map_range( left_arm_angle, -1, 1, 0, 127), self.map_range( right_arm_angle, -1, 1, 0, 127) ])
-            # print (self.arms_hlog[-1])
-            # self.updateLastMaxHeight()
-            break   # make this only for the first pose (single user)
+
+        return ([ left_arm_angle ,  right_arm_angle ])
 
 
     # Updates the last value 
-    def updateLastMaxHeight(self):
-        UPDATE_LENGHT = 1000  # 1 sec
-        
+    def updateLastMaxHeight(self, angle_arms):
+        # first add last data to the log
+        n_now = int(time.time_ns() / 1000000)
+        # map ANGLES into MIDI volumen range (0-127)
+        self.arms_hlog.append([ n_now, self.map_range( angle_arms[0], -1, 1, MIDI_MIN_ARM_VOL, MIDI_MAX_ARM_VOL), self.map_range( angle_arms[1], -1, 1, MIDI_MIN_ARM_VOL, MIDI_MAX_ARM_VOL) ])
+
+        UPDATE_LENGHT = 500  # 0.5 sec
         N = len(self.arms_hlog)
-        for indx in range(N,0,-1):
-            pass
+        time_limit = self.arms_hlog[N-1][0] - UPDATE_LENGHT
+        max_left = -1
+        max_right = -1
+        for indx in range(N-1,0,-1):
+            if ( self.arms_hlog[indx][0] < time_limit):
+                break
+            if (self.arms_hlog[indx][1] > max_left ):
+                max_left = self.arms_hlog[indx][1]
+            if (self.arms_hlog[indx][2] > max_right ):
+                max_right = self.arms_hlog[indx][2]
+
+        # print (max_left, ",", max_right)    #DEBUG ONLY
+        if max_left > max_right:
+            self.max_armh =  max_left
+        else:
+            self.max_armh = max_right
+        
+            
             
     # calculates the angle between two given vectors
     def calcVectorAngle(self, vector_1, vector_2):

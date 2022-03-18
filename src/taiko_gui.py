@@ -20,6 +20,9 @@ from include.globals import MIDI_PLAY_MIDIFILE_NOTES
 from include.globals import DRAW_SENSEI_ARMS
 from include.globals import DRAW_HITS
 from include.globals import JOY_BUFF_SIZE
+from include.globals import JOY_CNX_NUMBER
+from include.globals import MIDI_MIN_ARM_VOL
+from include.globals import MIDI_MAX_ARM_VOL
 
 
 # IMPORT CLASS FOR THE TAIKO MAIN PROGRAM CONTROL
@@ -41,8 +44,12 @@ class taikoGUI():
         self.txt2 = None
         self.txt4 = None
         self.txt5 = None
-        self.txt11 = None
-        self.txt12 = None
+        self.txt10 = None   # midi max past reaction value 
+        self.txt11 = None   # midi max future reaction value
+        self.txt12 = None   # joystick log event buffer size
+        self.txt13 = None  # joystick cnx number
+        self.txt14 = None   #midi min arm volume value
+        self.txt15 = None   # midi max arm volume value
         self.midi_play_file_notes = None
         self.midi_play_good_hits = None
         self.midi_play_all_hits = None
@@ -58,6 +65,10 @@ class taikoGUI():
 
     # save the config file direclty re-writing the global.py file
     def save(self):
+
+        if self.checkBeforeSafe() == False:
+            return 
+
         with open('include/globals.py', 'w') as f:
             f.write("# OPENCV GLOBAL VARIABLES \n")
             f.write("OP_MODELS_PATH = \""  + self.txt1.get().replace('\\','\\\\') +  "\" # OpenPose models folder \n")
@@ -75,11 +86,33 @@ class taikoGUI():
             f.write("MIDI_PLAY_GOOD_HITS = " + str(self.midi_play_good_hits.get())  + " \n")
             f.write("MIDI_PLAY_ALL_HITS = " + str(self.midi_play_all_hits.get())  + " \n")
             f.write("MIDI_PLAY_MIDIFILE_NOTES = " + str(self.midi_play_file_notes.get())  + " \n")
+            f.write("MIDI_MAX_ARM_VOL = "  + self.txt14.get()  + " \n")
+            f.write("MIDI_MIN_ARM_VOL = " + self.txt15.get()  + " \n")
+
+
+            f.write("\n# JOYSTICK CONTROL VARIABLES \n") 
+            f.write("JOY_CNX_NUMBER = " + self.txt13.get()  + " \n"  )
             f.write("JOY_BUFF_SIZE = " + self.txt12.get()  + " \n")
 
-
+        print('the globals.py file has been updated. ')
         print('Taiko Rehab has stopped....  Bye bye ( n o n ) p ')
         sys.exit(-1)
+
+    # check that the introduced value are correct before saving the globals.py file
+    def checkBeforeSafe(self):
+        max_arm_vol = self.txt14.get()
+        min_arm_vol = self.txt15.get()
+
+        if (not max_arm_vol.isnumeric() or int(max_arm_vol) > 126 ):
+            messagebox.showerror(title='Taiko Rehab Error', message="ERROR: max arm values is not number or bigger than 126.")
+            return False
+
+        if (not min_arm_vol.isnumeric() or int(min_arm_vol) < 0 ):
+            messagebox.showerror(title='Taiko Rehab Error', message="ERROR: min arm values is not number or smaller than 0.")
+            return False
+
+        return True
+
 
     def openFolder(self,txt):
         current_dir = os.path.abspath(os.path.dirname(__file__))
@@ -130,7 +163,7 @@ class taikoGUI():
         video_path = self.txt1_2.get()
         midi_path = self.txt1_3.get()
         start_frame = self.txt1_22.get()
-
+        
         # Input parameters check
         if (os.path.exists(csv_path) == False):
             messagebox.showerror(title="Taiko Rehab Error", message="ERROR: Instructor's poses CSV file not found. " )
@@ -147,7 +180,7 @@ class taikoGUI():
         if (not start_frame.isnumeric()):
             messagebox.showerror(title='Taiko Rehab Error', message="ERROR: Frame number is missing or is not a number.")
             return None
-            
+ 
         checks = self.taiko_ctrl.initThreads(csv_path, video_path, midi_path, int(start_frame))
         if checks[0] == False:
             messagebox.showerror(title="Taiko Rehab Warning", message="Warning: The Taiko Joystick is not connected to the PC. \nPlease connect it and restart the program." )
@@ -277,23 +310,44 @@ class taikoGUI():
         self.txt11.insert(tk.END, MIDI_MAX_FUTURE)
         self.txt11.grid(column=1, row=14, sticky="w")
 
+
+        lbl17 = ttk.Label(tab2, text= 'Max volume value for arm height (max 126)')
+        lbl17.grid(column=0, row=15)
+        self.txt14 = ttk.Entry(tab2 ,width=50)
+        self.txt14.insert(tk.END, MIDI_MAX_ARM_VOL)
+        self.txt14.grid(column=1, row=15, sticky="w")
+
+
+        lbl18 = ttk.Label(tab2, text= 'Min volume value for arm height (min 0)')
+        lbl18.grid(column=0, row=16)
+        self.txt15 = ttk.Entry(tab2 ,width=50)
+        self.txt15.insert(tk.END, MIDI_MIN_ARM_VOL)
+        self.txt15.grid(column=1, row=16, sticky="w")
+
+
+        lbl16 = ttk.Label(tab2, text= 'Joystick ID number')
+        lbl16.grid(column=0, row=17)
+        self.txt13 = ttk.Entry(tab2 ,width=50)
+        self.txt13.insert(tk.END, JOY_CNX_NUMBER)
+        self.txt13.grid(column=1, row=17, sticky="w")
+
         lbl12 = ttk.Label(tab2, text= 'Joystick inputs buffer size')
-        lbl12.grid(column=0, row=15)
+        lbl12.grid(column=0, row=18)
         self.txt12 = ttk.Entry(tab2 ,width=50)
         self.txt12.insert(tk.END, JOY_BUFF_SIZE)
-        self.txt12.grid(column=1, row=15, sticky="w")
+        self.txt12.grid(column=1, row=18, sticky="w")
 
         self.midi_play_good_hits = tk.BooleanVar(value = MIDI_PLAY_GOOD_HITS)
         check1 = tk.Checkbutton(tab2, text = "Play only GOOD timming drum hits",  variable=self.midi_play_good_hits, command=self.midi_play_good_hits_checked )
-        check1.grid(column=0, row=17)
+        check1.grid(column=0, row=19)
 
         self.midi_play_all_hits = tk.BooleanVar(value = MIDI_PLAY_ALL_HITS)
         check2 = tk.Checkbutton(tab2, text = "Play ALL drum hits",  variable=self.midi_play_all_hits, command=self.midi_play_all_hits_checked  )
-        check2.grid(column=1, row=17)
+        check2.grid(column=1, row=19)
 
         self.midi_play_file_notes = tk.BooleanVar(value = MIDI_PLAY_MIDIFILE_NOTES)
         check3 = tk.Checkbutton(tab2, text = "Play notes from MIDI file",  variable=self.midi_play_file_notes )
-        check3.grid(column=2, row=17)
+        check3.grid(column=2, row=19)
 
         sep4 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=20, columnspan=5, ipadx=300)
         lsep4 = ttk.Label(tab2, text="Training  options").grid(column=3, row=20)

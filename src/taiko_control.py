@@ -21,6 +21,7 @@ from include.globals import MAX_TXT_FRAMES
 from include.globals import DRAW_SENSEI_ARMS
 from include.globals import DRAW_HITS
 from include.globals import JOY_BUFF_SIZE
+from include.globals import JOY_CNX_NUMBER
 
 
 # TAIKO REHAB MODULES
@@ -116,11 +117,14 @@ class taikoControl():
             
             # Init Joystick       
             self.joy = Joystick()
+            joyOK = self.joy.joystickConnect(JOY_CNX_NUMBER)   # true if the joystick is connected to the PC
+            self.knote = Value('i', 64)  # saves the last played note key  (C# default value)
+            self.armh = Value('i', 0)  # saves the max arm height (mapped to 0-127)
             self.joyTimeBuf = Array('q', [0] * JOY_BUFF_SIZE)  # Buf that saves the last joystick events (10 items is enough)
             self.jBufIndx = Value('q', 0)  # index value for the joystick entry buffer
             self.joy_log = Array ('q', [0] * JOY_BUFF_SIZE)
-            self.joy.start('Microsoft GS Wavetable Synth 0', self.joyTimeBuf, self.jBufIndx, self.joy_log)   # Init thread and start joystick event catch thread
-            joyOK = self.joy.joystickCheck()   # true if the joystick is connected to the PC
+            self.joy.start('Microsoft GS Wavetable Synth 0', self.joyTimeBuf, self.jBufIndx, self.joy_log, self.knote, self.armh)   # Init thread and start joystick event catch thread
+            
 
             # Init M5 acc serial thread
             self.joyForces = Array('f', [0] * self.joy.jCount)  # object to save the joysitck hit force
@@ -131,7 +135,7 @@ class taikoControl():
             m5OK = self.m5.m5Check()   # true if m5 is connected to the PC
 
             # Init MIDI control process
-            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', log_path=log_path, filename=midi_path, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log, timestamp=self.timestamp)
+            self.midi = MidiControl(portname='Microsoft GS Wavetable Synth 0', log_path=log_path, filename=midi_path, joyTimeBuf=self.joyTimeBuf, jBufIndx=self.jBufIndx, start_event=self.start_event, joy_log=self.joy_log, knote=self.knote, armh=self.armh, timestamp=self.timestamp)
 
             # Logs the users' arms positions
             self.armsPos = ArmAngleLog(self.cam.resX, self.cam.resY, csv_path, log_path=log_path)
@@ -203,16 +207,16 @@ class taikoControl():
                 
                 # Calcs the arm and shoulder angular velocity 
                 self.armsPos.logArmsVel(self.datum.poseKeypoints)
-                self.armsPos.logArmsHeight(self.datum.poseKeypoints)
-                
+                self.armh.value = int(self.armsPos.max_armh)  # update the max arm value (mapped from 0 - 127)
+                 
                 # Draws the skeleton of the user's arms (changes color accordingly to match)
                 # self.armsPos.drawSkeleton(img, self.datum.poseKeypoints, arms_matches, 0.8)
 
                 # Draws sensei's arms over the user
                 if DRAW_SENSEI_ARMS:
                     # Checks if the users arms and instructors arms (video) match
-                    arms_matches = self.armsPos.getArmsMatch(self.video.get_timestamp(), self.video.get_fps(), 0.8) # must be called after logArmsVel
-                    img = self.armsPos.drawSenseiArms(img, self.datum.poseKeypoints, arms_matches, self.video.get_timestamp(), self.video.get_fps(), 0.8)
+                    arms_matches = self.armsPos.getArmsMatch(self.timestamp.value, self.video.get_fps(), 0.8) # must be called after logArmsVel
+                    img = self.armsPos.drawSenseiArms(img, self.datum.poseKeypoints, arms_matches, self.timestamp.value, self.video.get_fps(), 0.8)
                 
                 if event[0] == True:  
                     self.txtFrames = 0   # Init the frame counter for the visual feedback

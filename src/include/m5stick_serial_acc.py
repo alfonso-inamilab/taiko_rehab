@@ -54,6 +54,12 @@ class M5SerialCom:
         else:
             return True
 
+# def deserialize(data)
+#     try:
+#         return msgpack.loads(data)
+#     except UnicodeDecodeError as e:
+#         # ... do something with e
+
     # when the thread is stopped log all captured data on disk
     # (must be called inside the thread process)
     def logOnDisk(self):
@@ -62,10 +68,15 @@ class M5SerialCom:
 
             wr.writerow(['Index', 'Time(epoch)', 'Z_Axis_Acceleration_(ms/s^2)'])
             for i, line in enumerate(self.accLogBuff):
-                acc_s = line[1].decode('utf-8')
-                acc_z = acc_s.split(',')[1].split(',')[0]
-                # f_y = float(acc_y) * self.JOYSTICK_MASS
-                wr.writerow( [i, line[0], acc_z] )
+                try:
+                    acc_s = line[1].decode('utf-8')
+                    acc_z = acc_s.split(',')[1].split(',')[0]
+                    # f_y = float(acc_y) * self.JOYSTICK_MASS
+                    wr.writerow( [i, line[0], acc_z] )
+                except UnicodeDecodeError as e:
+                    print ("ERROR: Unicode Decode error in line ", i)
+                    continue
+
 
 
     def getLastAccData(self):

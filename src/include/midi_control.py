@@ -26,7 +26,8 @@ def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
     input_time = 0
     first_note = False
 
-    for msg in MidiFile(filename):
+    mid = MidiFile(filename)
+    for msg in mid:
         input_time = int(msg.time*1000)
 
         playback_time = vt.value - start_time
@@ -35,6 +36,8 @@ def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
         if duration_to_next_event > 0:
             time.sleep(duration_to_next_event/1000.0)
 
+        # IMPORTANT. Since the MIDI is sync with the video, the tempo is the FPS of the video. 
+        # Other meta midi messages like Time signature are also ignored. 
         if msg.is_meta:
             continue
         else:

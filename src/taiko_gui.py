@@ -298,27 +298,27 @@ class taikoGUI():
         sep3 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=12, columnspan=5, ipadx=300)
         lsep3 = ttk.Label(tab2, text="MIDI Options").grid(column=3, row=12)
 
-        lbl10 = ttk.Label(tab2, text= 'Time threshold for prev. for GOOD hits (ms)')
+        lbl10 = ttk.Label(tab2, text= 'Time threshold for past GOOD hits (ms)')
         lbl10.grid(column=0, row=13)
         self.txt10 = ttk.Entry(tab2 ,width=50)
         self.txt10.insert(tk.END, MIDI_MAX_PAST)
         self.txt10.grid(column=1, row=13, sticky="w")
 
-        lbl11 = ttk.Label(tab2, text= 'Time threshold for future for GOOD hits (ms)')
+        lbl11 = ttk.Label(tab2, text= 'Time threshold for future GOOD hits (ms)')
         lbl11.grid(column=0, row=14)
         self.txt11 = ttk.Entry(tab2 ,width=50)
         self.txt11.insert(tk.END, MIDI_MAX_FUTURE)
         self.txt11.grid(column=1, row=14, sticky="w")
 
 
-        lbl17 = ttk.Label(tab2, text= 'Max volume value for arm height (max 126)')
+        lbl17 = ttk.Label(tab2, text= 'Max MIDI vol. for max arm height (max 126)')
         lbl17.grid(column=0, row=15)
         self.txt14 = ttk.Entry(tab2 ,width=50)
         self.txt14.insert(tk.END, MIDI_MAX_ARM_VOL)
         self.txt14.grid(column=1, row=15, sticky="w")
 
 
-        lbl18 = ttk.Label(tab2, text= 'Min volume value for arm height (min 0)')
+        lbl18 = ttk.Label(tab2, text= 'Min MIDI vol. for min arm height (min 0)')
         lbl18.grid(column=0, row=16)
         self.txt15 = ttk.Entry(tab2 ,width=50)
         self.txt15.insert(tk.END, MIDI_MIN_ARM_VOL)

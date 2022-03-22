@@ -75,24 +75,7 @@ class ArmAngleLog:
 
     # Given the time in ms, returns the vidoe arm and shoulder angles
     def getVideoArmsVectors(self, time, fps):
-        # From 0 to len search 
-        # for indx in range(0, self.v_len, 1):
-        #     v_time = self.video_angles[indx][0]
-        #     if time < v_time:
-        #         # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
-        #         return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
-
-        # VER 2. Quicker search
-        # for indx in range(self.video_angles_index, self.v_len, 1):
-        #     v_time = self.video_angles[indx][0]
-        #     if time <= v_time:
-        #         self.video_angles_index = indx - 1
-        #         if (self.video_angles_index < 0):
-        #             self.video_angles_index = 0 
-        #         # [left_shoulder, right_shoulder, left_arm, right_arm, left_foream, right_foream ]
-        #         return [ self.video_angles[indx][1], self.video_angles[indx][2], self.video_angles[indx][3], self.video_angles[indx][4], self.video_angles[indx][5], self.video_angles[indx][6] ]
-
-        # VER 3. raw Openpose data from JSON->CSV file
+        # VER 3. Raw Openpose data from JSON->CSV file
         frame = int( (fps/1000) * time )
         if frame >= len(self.video_angles):
             return None
@@ -168,7 +151,7 @@ class ArmAngleLog:
 
     # Draws the sensei arms over the users arms 
     def drawSenseiArms(self, img, poses, matches, timestamp, fps, threshold):
-        # SLOW VERSION 
+        # SLOW VERSION  (but easier to understand)
         # frame = int( (fps/1000) * timestamp.value )        
         # left_wrist = np.asarray([ self.video_angles[frame][7*3],  self.video_angles[frame][7*3+1] ])
         # left_elbow = np.asarray([ self.video_angles[frame][6*3],  self.video_angles[frame][6*3+1] ])
@@ -228,9 +211,6 @@ class ArmAngleLog:
             img = cv2.line(img, ( int( sensei_r_elbow[0] ),int( sensei_r_elbow[1] )) , (int(sensei_r_wrist[0]),int(sensei_r_wrist[1]))  , color, 5)
 
             break # only do it for the first user
-
-
-        
         return img
 
     # Draws the OpenPose person index over the users' head
@@ -334,15 +314,17 @@ class ArmAngleLog:
             self.prev_arms_angle[2] = left_arm_angle; self.prev_arms_angle[3] = right_arm_angle; 
             self.prev_time = now_sec
 
-            arms_height_angle = self.calcArmsHeight(pose)
-            # Log arms height and save the last maxiumum height value
+            # Calculates the height between the user's shoulder and the wrist
+            arms_height_angle = self.calcArmsHeight(pose)  # Returns RAW dot product (to ease the MIDI mapping)
+            # Updates the max hisotrical wrist height for MIDI volume 
             self.updateLastMaxHeight(arms_height_angle)
             
-            # TODO calculate height using Miyazaki sensei formula and add it to the logs
-
+            # Calculate the angle height for the logs
+            l_wrist_angle_degs = (180.0/math.pi) * np.arccos(arms_height_angle[0])
+            r_wrist_angle_degs = (180.0/math.pi) * np.arccos(arms_height_angle[1])
 
             now = int(time.time_ns() / 1000000)  # log time in ms
-            user_arms.append( (now, left_sh_angle, right_sh_angle, left_arm_angle, right_arm_angle, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel) )  # 0 max 1 min
+            user_arms.append( (now, left_sh_angle, right_sh_angle, left_arm_angle, right_arm_angle, left_sh_vel, right_sh_vel, left_arm_vel, right_arm_vel, l_wrist_angle_degs, r_wrist_angle_degs) )  # 0 max 1 min
             break   # make this only for the first pose (single user)
 
         self.armsLogs.append(user_arms)
@@ -436,9 +418,9 @@ class ArmAngleLog:
         with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
             wr = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-            wr.writerow(['Index', 'Time(epoch ms)', 'Left_Sh_Angle(deg)', 'Right_Sh_Angle(deg)', 'Left_Arm_Angle(deg)', 'Right_Arm_Angle(deg)', 'Left_Sh_Vel(deg/s)', 'Right_Sh_Vel(deg/s)', 'Left_Arm_Vel(deg/s)', 'Right_Arm_Vel(deg/s)'])
+            wr.writerow(['Index', 'Time(epoch ms)', 'Left_Sh_Angle(deg)', 'Right_Sh_Angle(deg)', 'Left_Arm_Angle(deg)', 'Right_Arm_Angle(deg)', 'Left_Sh_Vel(deg/s)', 'Right_Sh_Vel(deg/s)', 'Left_Arm_Vel(deg/s)', 'Right_Arm_Vel(deg/s)', 'Left_Height_Angle(deg)', 'Right_Height_Angle(deg)'])
             for i, line in enumerate(self.armsLogs):
-                wr.writerow([i, line[0][0], line[0][1], line[0][2], line[0][3], line[0][4], line[0][5], line[0][6], line[0][7], line[0][8] ])
+                wr.writerow([i, line[0][0], line[0][1], line[0][2], line[0][3], line[0][4], line[0][5], line[0][6], line[0][7], line[0][8], line[0][9], line[0][10] ])
 
 
                     

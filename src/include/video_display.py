@@ -28,7 +28,7 @@ class VideoPanel(wx.Frame):
         self.th.daemon = True
         self.th.start()
 
-
+    
     def play(self, event):
         self.stop_flag.value = False
         self.testMedia.Play()
@@ -37,6 +37,7 @@ class VideoPanel(wx.Frame):
         self.stop_flag.value = True
         self.th.join()
         self.Destroy()
+
 
 
     # Thread looping function to update the video timestamp
@@ -86,7 +87,4 @@ class VideoDisplay():
     # Retruns the FPS obtained with OpenCV
     def get_fps(self):
         return self.fps
-
-
-    
-                
+        

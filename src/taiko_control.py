@@ -299,7 +299,8 @@ class taikoControl():
         force_arms_midi = force_arms_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
         force_arms_midi.to_csv(full_log_file, index=False)   # Save on CSV file
 
-if __name__ == "__main__":
-    main()
+    
+
+
 
 

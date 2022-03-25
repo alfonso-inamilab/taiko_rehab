@@ -8,18 +8,19 @@ Taiko Rehab uses a MIDI file and a video file of an instructor playing the Taiko
 
 ## Usage 
 
-First it is necessary to pre-process the video file of the instructor to create a CSV file that saves the instructors arm and shoulders positions. 
-To do it, open a terminal in the same folder whre the TaikoRehab is located and type:
+First it is necessary to pre-process the instructor's video file (MP4) to save his arm poses in a CSV file. 
+For this, in the `Video Pre_Process section` open the MP4 and select a name for the CSV file.
+Then click `Pre Process Poses` and wuit until the video finish. 
 
-`python taiko_rehab.py -p [INSTRUCTOR VIDEO FILE.mp4]`
+![Pre-Process Screen](img/pre-process-screen.png?raw=true)
 
-Wait until the video is played completely and the program closes it self. 
+With the sensei's video (MP4), drum hits (MIDI) and poses (CSV), go to section `Training` open the MP4,MIDI and CSV files.
+Then indicate the frame number of the first MIDI note. And then click `Start Training`. 
 
-To use TaikoRehab, open a terminal and type the following command:
+![Pre-Process Screen](img/training-screen.png?raw=true)
 
-`python taiko_rehab.py [MUSIC MIDI FILE .midi] [INSTRUCTOR VIDEO FILE.mp4]`
-
-(NOTE. The instructor video file and the CSV file must be in the same folder and have the same name)
+This will open the users' camera on a screen. Then press `p` to start the Taiko Drum training. 
+To close the program press `q` or `ESC` on the user's webcam screen. 
 
 ## Hardware
 
@@ -92,7 +93,43 @@ GOOD hit.
 - JOY_BUFF_SIZE = Size of joystick events buffer.
 
 
-## Install How To
-TODO. Make a better documentation
+## How to Install
+First you need to install Openpose for Python (from source code). 
+For this you need to pre-install: 
 
-OpenPose, M5Stick libraries and several Python libraries must be installed in order for the system to correctly work. 
+(Different versions may also work)
+
+- Git
+    - https://git-scm.com/download/win
+- CMake
+    - https://cmake.org/
+- Visual Studio 2019 
+    - https://www.techspot.com/downloads/7241-visual-studio-2019.html (direct link)
+- Python (3.7)
+    - https://www.python.org/downloads/release/python-370/
+- CUDA and cuDNN (OpenPose recommends CUDA 11 and cuDNN 8)
+    - CUDA
+    - https://developer.nvidia.com/cuda-toolkit-archive
+    - cuDNN
+    - https://developer.nvidia.com/rdp/cudnn-archive
+
+
+Then follow the instructions mentioned in Openpose documentation:  
+https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/installation/0_index.md#compiling-and-running-openpose-from-source 
+
+Then install all the python libraries using pip:
+- numpy 
+    - `pip install numpy`
+- opencv  
+    - `pip install opencv-python`
+- pygame  
+    - `pip install pygame`
+- mido
+    - `pip install mido`
+- pyserial 
+    - `pip install pyserial`
+- wxPython  
+    - `pip install wxPython`
+- rtmidi 
+    - `pip install python-rtmidi`
+

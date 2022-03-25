@@ -15,7 +15,9 @@ Then click `Pre Process Poses` and wuit until the video finish.
 ![Pre-Process Screen](img/pre-process-screen.png?raw=true)
 
 With the sensei's video (MP4), drum hits (MIDI) and poses (CSV), go to section `Training` open the MP4,MIDI and CSV files.
-Then indicate the frame number of the first MIDI note. And then click `Start Training`. 
+Then indicate the frame number of the first MIDI note and then click `Start Training`.
+
+( [You can use PotPlayer to get the frame number of the first MIDI note](src/samples/README.md  ) ) 
 
 ![Pre-Process Screen](img/training-screen.png?raw=true)
 

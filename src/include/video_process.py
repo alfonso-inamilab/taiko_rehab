@@ -30,12 +30,15 @@ class VideoProcess():
         import pyopenpose as op
 
         jsons_path = "./include/jsons/"
+        if os.path.isdir(jsons_path) == False:
+            os.mkdir(jsons_path) #create folder if do not exists
 
         # Custom Params (refer to include/openpose/flags.hpp for more parameters)
         params = dict()
         params["model_folder"] = OP_MODELS_PATH
         params["video"] = video_path
         params["write_json"]  = jsons_path
+        params["net_resolution"] = "368x368"  # BUGFIX for small memory GPU
         # params["hand"] = True
 
         # DELETE PREVIOUS CSV FILES CREATED

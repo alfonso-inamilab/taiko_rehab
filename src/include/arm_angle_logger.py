@@ -3,7 +3,6 @@ import cv2
 import os
 import math
 import csv
-import pandas as pd
 import numpy as np
 from array import array
 from threading import Thread

@@ -174,6 +174,7 @@ class taikoControl():
         params = dict()
         params["model_folder"] = OP_MODELS_PATH
         params["number_people_max"] = 1 #MAX_NUM_PEOPLE
+        params["net_resolution"] = "368x368"  # BUGFIX for small memory GPU
 
         # Init OpenPose python wrapper
         self.opWrapper = op.WrapperPython()
@@ -284,20 +285,20 @@ class taikoControl():
     #     sys.exit(-1)
 
 
-    # Joins all the CSV log files into a single file (Using Pandas)
-    def joinCsvLogs(self, force_log_file, midi_log_file , arms_log_file, full_log_file ):
-        # Open every CSV in a independent dataframe
-        force = pd.read_csv(force_log_file, index_col=None, header=0)
-        arms = pd.read_csv(arms_log_file, index_col=None, header=0)
-        midi = pd.read_csv(midi_log_file, index_col=None, header=0)
-        # Merge force and arms data frames
-        force_arms = pd.concat([force,arms])
-        force_arms = force_arms.sort_values('Time(epoch)')
-        # Merge force arms and midi dataframes
-        force_arms_midi =  pd.concat([force_arms, midi])
-        force_arms_midi = force_arms_midi.sort_values('Time(epoch)')
-        force_arms_midi = force_arms_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
-        force_arms_midi.to_csv(full_log_file, index=False)   # Save on CSV file
+    # # Joins all the CSV log files into a single file (Using Pandas)
+    # def joinCsvLogs(self, force_log_file, midi_log_file , arms_log_file, full_log_file ):
+    #     # Open every CSV in a independent dataframe
+    #     force = pd.read_csv(force_log_file, index_col=None, header=0)
+    #     arms = pd.read_csv(arms_log_file, index_col=None, header=0)
+    #     midi = pd.read_csv(midi_log_file, index_col=None, header=0)
+    #     # Merge force and arms data frames
+    #     force_arms = pd.concat([force,arms])
+    #     force_arms = force_arms.sort_values('Time(epoch)')
+    #     # Merge force arms and midi dataframes
+    #     force_arms_midi =  pd.concat([force_arms, midi])
+    #     force_arms_midi = force_arms_midi.sort_values('Time(epoch)')
+    #     force_arms_midi = force_arms_midi.drop('Time_Lapse(ms)',1)   # Drop Time lapse it is not needed
+    #     force_arms_midi.to_csv(full_log_file, index=False)   # Save on CSV file
 
     
 

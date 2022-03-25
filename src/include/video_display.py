@@ -8,7 +8,6 @@ import wx.media
 from threading import Thread
 from multiprocessing import Process
 from multiprocessing import Event, Value
-from ffpyplayer.player import MediaPlayer
 
 # WX Frame to display the video. It also creates an external thread to updtea the video timestamp (ms)
 class VideoPanel(wx.Frame):

@@ -241,7 +241,7 @@ class taikoGUI():
         lbl11 = ttk.Label(tab1, text= 'Arm Poses CSV file')
         lbl11.grid(column=0, row=0)
         self.txt1_1 = ttk.Entry(tab1,width=60)
-        self.txt1_1.insert(tk.END, "./sample7/sample7.csv")  # default value for DEBUG ONLY
+        self.txt1_1.insert(tk.END, "./sample6/sample6.csv")  # default value for DEBUG ONLY
         self.txt1_1.grid(column=1, row=0)
         fbtn11 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_1, filetypes=[("CSV files", ".csv")] )))
         fbtn11.grid(column=3, row=0)
@@ -249,7 +249,7 @@ class taikoGUI():
         lbl12 = ttk.Label(tab1, text= 'Video MP4 file')
         lbl12.grid(column=0, row=1)
         self.txt1_2 = ttk.Entry(tab1,width=60)
-        self.txt1_2.insert(tk.END, "./sample7/sample7.mp4")  # default value for DEBUG ONLY
+        self.txt1_2.insert(tk.END, "./sample6/sample6.mp4")  # default value for DEBUG ONLY
         self.txt1_2.grid(column=1, row=1)
         fbtn12 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_2, filetypes=[("Video files", ".mp4")] )))
         fbtn12.grid(column=3, row=1)
@@ -257,13 +257,13 @@ class taikoGUI():
         lbl15 = ttk.Label(tab1, text= 'First Note Frame Number')
         lbl15.grid(column=4, row=1)
         self.txt1_22 = ttk.Entry(tab1,width=5)
-        self.txt1_22.insert(tk.END, "274")    # default value for DEBUG ONLY
+        self.txt1_22.insert(tk.END, "193")    # default value for DEBUG ONLY
         self.txt1_22.grid(column=5, row=1)
 
         lbl13 = ttk.Label(tab1, text= 'MIDI File')
         lbl13.grid(column=0, row=2)
         self.txt1_3 = ttk.Entry(tab1,width=60)
-        self.txt1_3.insert(tk.END, "./sample7/sample7.mid")  # for DEBUG ONLY
+        self.txt1_3.insert(tk.END, "./sample6/sample6.mid")  # for DEBUG ONLY
         self.txt1_3.grid(column=1, row=2)
         fbtn13 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_3, filetypes=[("MIDI files", ".midi .mid")])))
         fbtn13.grid(column=3, row=2)

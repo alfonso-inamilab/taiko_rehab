@@ -23,6 +23,7 @@ from include.globals import JOY_BUFF_SIZE
 from include.globals import JOY_CNX_NUMBER
 from include.globals import MIDI_MIN_ARM_VOL
 from include.globals import MIDI_MAX_ARM_VOL
+from include.globals import MIDI_SYNTH_LATENCY
 
 
 # IMPORT CLASS FOR THE TAIKO MAIN PROGRAM CONTROL
@@ -50,6 +51,7 @@ class taikoGUI():
         self.txt13 = None  # joystick cnx number
         self.txt14 = None   #midi min arm volume value
         self.txt15 = None   # midi max arm volume value
+        self.txt16 = None   # midi synth latency value
         self.midi_play_file_notes = None
         self.midi_play_good_hits = None
         self.midi_play_all_hits = None
@@ -88,7 +90,7 @@ class taikoGUI():
             f.write("MIDI_PLAY_MIDIFILE_NOTES = " + str(self.midi_play_file_notes.get())  + " \n")
             f.write("MIDI_MAX_ARM_VOL = "  + self.txt14.get()  + " \n")
             f.write("MIDI_MIN_ARM_VOL = " + self.txt15.get()  + " \n")
-
+            f.write("MIDI_SYNTH_LATENCY = " + self.txt16.get()  + " \n")
 
             f.write("\n# JOYSTICK CONTROL VARIABLES \n") 
             f.write("JOY_CNX_NUMBER = " + self.txt13.get()  + " \n"  )
@@ -102,6 +104,7 @@ class taikoGUI():
     def checkBeforeSafe(self):
         max_arm_vol = self.txt14.get()
         min_arm_vol = self.txt15.get()
+        midi_latency = self.txt16.get()
 
         if (not max_arm_vol.isnumeric() or int(max_arm_vol) > 126 ):
             messagebox.showerror(title='Taiko Rehab Error', message="ERROR: max arm values is not number or bigger than 126.")
@@ -109,6 +112,10 @@ class taikoGUI():
 
         if (not min_arm_vol.isnumeric() or int(min_arm_vol) < 0 ):
             messagebox.showerror(title='Taiko Rehab Error', message="ERROR: min arm values is not number or smaller than 0.")
+            return False
+
+        if (not midi_latency.isnumeric()):
+            messagebox.showerror(title='Taiko Rehab Error', message="ERROR: MIDI latency value is not a number.")
             return False
 
         return True
@@ -234,7 +241,7 @@ class taikoGUI():
         lbl11 = ttk.Label(tab1, text= 'Arm Poses CSV file')
         lbl11.grid(column=0, row=0)
         self.txt1_1 = ttk.Entry(tab1,width=60)
-        self.txt1_1.insert(tk.END, "./samples/sample1.csv")  # default value for DEBUG ONLY
+        self.txt1_1.insert(tk.END, "./sample7/sample7.csv")  # default value for DEBUG ONLY
         self.txt1_1.grid(column=1, row=0)
         fbtn11 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_1, filetypes=[("CSV files", ".csv")] )))
         fbtn11.grid(column=3, row=0)
@@ -242,7 +249,7 @@ class taikoGUI():
         lbl12 = ttk.Label(tab1, text= 'Video MP4 file')
         lbl12.grid(column=0, row=1)
         self.txt1_2 = ttk.Entry(tab1,width=60)
-        self.txt1_2.insert(tk.END, "./samples/sample1.mp4")  # default value for DEBUG ONLY
+        self.txt1_2.insert(tk.END, "./sample7/sample7.mp4")  # default value for DEBUG ONLY
         self.txt1_2.grid(column=1, row=1)
         fbtn12 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_2, filetypes=[("Video files", ".mp4")] )))
         fbtn12.grid(column=3, row=1)
@@ -250,13 +257,13 @@ class taikoGUI():
         lbl15 = ttk.Label(tab1, text= 'First Note Frame Number')
         lbl15.grid(column=4, row=1)
         self.txt1_22 = ttk.Entry(tab1,width=5)
-        self.txt1_22.insert(tk.END, "193")    # default value for DEBUG ONLY
+        self.txt1_22.insert(tk.END, "274")    # default value for DEBUG ONLY
         self.txt1_22.grid(column=5, row=1)
 
         lbl13 = ttk.Label(tab1, text= 'MIDI File')
         lbl13.grid(column=0, row=2)
         self.txt1_3 = ttk.Entry(tab1,width=60)
-        self.txt1_3.insert(tk.END, "./samples/sample1.mid")  # for DEBUG ONLY
+        self.txt1_3.insert(tk.END, "./sample7/sample7.mid")  # for DEBUG ONLY
         self.txt1_3.grid(column=1, row=2)
         fbtn13 = ttk.Button(tab1, text="Open File", command=(lambda: self.openFile(self.txt1_3, filetypes=[("MIDI files", ".midi .mid")])))
         fbtn13.grid(column=3, row=2)
@@ -317,47 +324,51 @@ class taikoGUI():
         self.txt14.insert(tk.END, MIDI_MAX_ARM_VOL)
         self.txt14.grid(column=1, row=15, sticky="w")
 
-
         lbl18 = ttk.Label(tab2, text= 'Min MIDI vol. for min arm height (min 0)')
         lbl18.grid(column=0, row=16)
         self.txt15 = ttk.Entry(tab2 ,width=50)
         self.txt15.insert(tk.END, MIDI_MIN_ARM_VOL)
         self.txt15.grid(column=1, row=16, sticky="w")
 
+        lbl19 = ttk.Label(tab2, text= 'Windows MIDI Synth latency value (in ms)')
+        lbl19.grid(column=0, row=17)
+        self.txt16 = ttk.Entry(tab2 ,width=50)
+        self.txt16.insert(tk.END, MIDI_SYNTH_LATENCY)
+        self.txt16.grid(column=1, row=17, sticky="w")
 
         lbl16 = ttk.Label(tab2, text= 'Joystick ID number')
-        lbl16.grid(column=0, row=17)
+        lbl16.grid(column=0, row=18)
         self.txt13 = ttk.Entry(tab2 ,width=50)
         self.txt13.insert(tk.END, JOY_CNX_NUMBER)
-        self.txt13.grid(column=1, row=17, sticky="w")
+        self.txt13.grid(column=1, row=18, sticky="w")
 
         lbl12 = ttk.Label(tab2, text= 'Joystick inputs buffer size')
-        lbl12.grid(column=0, row=18)
+        lbl12.grid(column=0, row=19)
         self.txt12 = ttk.Entry(tab2 ,width=50)
         self.txt12.insert(tk.END, JOY_BUFF_SIZE)
-        self.txt12.grid(column=1, row=18, sticky="w")
+        self.txt12.grid(column=1, row=19, sticky="w")
 
         self.midi_play_good_hits = tk.BooleanVar(value = MIDI_PLAY_GOOD_HITS)
         check1 = tk.Checkbutton(tab2, text = "Play only GOOD timming drum hits",  variable=self.midi_play_good_hits, command=self.midi_play_good_hits_checked )
-        check1.grid(column=0, row=19)
+        check1.grid(column=0, row=20)
 
         self.midi_play_all_hits = tk.BooleanVar(value = MIDI_PLAY_ALL_HITS)
         check2 = tk.Checkbutton(tab2, text = "Play ALL drum hits",  variable=self.midi_play_all_hits, command=self.midi_play_all_hits_checked  )
-        check2.grid(column=1, row=19)
+        check2.grid(column=1, row=21)
 
         self.midi_play_file_notes = tk.BooleanVar(value = MIDI_PLAY_MIDIFILE_NOTES)
         check3 = tk.Checkbutton(tab2, text = "Play notes from MIDI file",  variable=self.midi_play_file_notes )
-        check3.grid(column=2, row=19)
+        check3.grid(column=2, row=22)
 
-        sep4 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=20, columnspan=5, ipadx=300)
-        lsep4 = ttk.Label(tab2, text="Training  options").grid(column=3, row=20)
+        sep4 = ttk.Separator(tab2, orient='horizontal').grid(column=0, row=23, columnspan=5, ipadx=300)
+        lsep4 = ttk.Label(tab2, text="Training  options").grid(column=3, row=23)
 
         # THIS ELEMENT INDEXES ARE OUT OF ORDER (cut and pasted into other section)
         lbl4 = ttk.Label(tab2, text= 'Max Frames for Visual Feedback')
-        lbl4.grid(column=0, row=21)
+        lbl4.grid(column=0, row=24)
         self.txt4 = ttk.Entry(tab2 ,width=50)
         self.txt4.insert(tk.END, MAX_TXT_FRAMES)
-        self.txt4.grid(column=1, row=21, sticky="W")
+        self.txt4.grid(column=1, row=24, sticky="W")
 
         self.draw_sensei_arms = tk.BooleanVar(value = DRAW_SENSEI_ARMS)
         check4 = tk.Checkbutton(tab2, text = "Draw Sensei arms over User", variable=self.draw_sensei_arms )

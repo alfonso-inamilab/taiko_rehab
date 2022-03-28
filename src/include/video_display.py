@@ -8,6 +8,7 @@ import wx.media
 from threading import Thread
 from multiprocessing import Process
 from multiprocessing import Event, Value
+from include.globals import MIDI_SYNTH_LATENCY
 
 # WX Frame to display the video. It also creates an external thread to updtea the video timestamp (ms)
 class VideoPanel(wx.Frame):
@@ -37,16 +38,13 @@ class VideoPanel(wx.Frame):
         self.th.join()
         self.Destroy()
 
-
-
     # Thread looping function to update the video timestamp
     def getTime(self, start_event, start_frame, fps, timestamp, stop_flag):
+        FIRST_HIT_TIME = int( (start_frame / fps) * 1000)
 
-        FIRST_HIT_TIME = int((start_frame / fps) * 1000)
-        
         first_hit = True
         while (stop_flag.value == False):
-            timestamp.value = self.testMedia.Tell()
+            timestamp.value = self.testMedia.Tell() + MIDI_SYNTH_LATENCY
             
             if (timestamp.value > FIRST_HIT_TIME and first_hit == True):
                 start_event.set()

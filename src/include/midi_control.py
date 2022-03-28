@@ -20,30 +20,27 @@ tnotes_log = Array('q', [0] * JOY_BUFF_SIZE)  # Save notes timming fo the log
 # This loop only plays the MIDI file. RUNS USING THE FPS FROM THE VIDEO FOR GOOD SYNC
 def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
     output = mido.open_output(portname)
-    event_counter = 0
-
-    start_time = vt.value
-    input_time = 0
-    first_note = False
-
     mid = MidiFile(filename)
+
+    event_counter = 0
+    first_note = False
+    start_time= 0
     for msg in mid:
-        input_time = int(msg.time*1000)
+    
+        if first_note:
+            wait_limit = start_time + int(msg.time*1000)
+            while(True):
+                if (vt.value) >= wait_limit:
+                    start_time = vt.value
+                    break   
 
-        playback_time = vt.value - start_time
-        duration_to_next_event = input_time - playback_time
-
-        if duration_to_next_event > 0:
-            time.sleep(duration_to_next_event/1000.0)
-
-        # IMPORTANT. Since the MIDI is sync with the video, the tempo is the FPS of the video. 
-        # Other meta midi messages like Time signature are also ignored. 
         if msg.is_meta:
-            continue
+            continue        
         else:
-            if (msg.type == 'note_on') and not first_note:
+            if msg.type == 'note_on' and msg.velocity > 0 and not first_note:
+                print("Waiting for first note...")
                 start_event.wait()
-                start_time = vt.value
+                start_time = vt.value 
                 first_note = True
 
             if MIDI_PLAY_MIDIFILE_NOTES == True:
@@ -57,15 +54,6 @@ def playMidi( portname, filename, tnote, knote, tnotes_log, start_event, vt):
                 #save note data into the log 
                 tnotes_log[event_counter] = now
                 event_counter = event_counter + 1
-
-
-        if msg.is_meta:
-            continue
-        else:
-            if msg.type == 'note_on' and msg.velocity > 0:
-                if first_note == True:
-                    start_event.wait()
-                    first_note = False
                 
     output.reset()
     print ("MIDI thread stop...")
